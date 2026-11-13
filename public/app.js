@@ -61,7 +61,7 @@ const CONFIG = {
     closer: [145, 568], cs: [220, 545], alfred: [145, 665] },
   agentRadius: 17,
   projection: { originX: 600, originY: 400, xScale: .6, yScale: .28 },
-  moveMs: 1300
+  movement: { speed: 410, minSegmentMs: 180, maxSegmentMs: 1250, corridorX: 278, doorOffset: 18 }
 };
 
 const canvas = document.getElementById('office');
@@ -121,6 +121,13 @@ function project(x, y, height = 0) {
   return { x: p.originX + (x - 600) * p.xScale - (y - 390) * p.xScale,
     y: p.originY + (x - 600) * p.yScale + (y - 390) * p.yScale - height };
 }
+function roomEntry(zone) {
+  const back = zone.y >= 350;
+  const doorY = back ? zone.y : zone.y + zone.h;
+  return { x: zone.x + zone.w / 2, doorY,
+    outsideY: doorY + (back ? -CONFIG.movement.doorOffset : CONFIG.movement.doorOffset),
+    insideY: doorY + (back ? 42 : -32), back };
+}
 
 function roundRect(x, y, w, h, r = 12) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
 function shadow() { ctx.shadowColor = 'rgba(0,0,0,.10)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4; }
@@ -140,6 +147,7 @@ const AVATAR_STYLES = {
 function drawAvatar(agent, x, y, now) {
   const style = AVATAR_STYLES[agent.id];
   const seated = (agent.destination === 'work' || agent.destination === 'lounge') && !agent.startedAt;
+  const typing = seated && agent.destination === 'work' && agent.status === 'working';
   const walking = agent.startedAt !== 0;
   const step = walking ? Math.sin(now / 90) * 3 : 0;
   const bob = walking ? Math.abs(Math.sin(now / 90)) * 2 : Math.sin(now / 600 + x) * .5;
@@ -158,8 +166,17 @@ function drawAvatar(agent, x, y, now) {
   roundRect(x - 14, torsoY, 28, 25, 7); ctx.fill();
   ctx.fillStyle = '#00000020'; roundRect(x + 5, torsoY + 2, 7, 20, 3); ctx.fill();
   ctx.fillStyle = style.skin;
-  roundRect(x - 18, torsoY + 5, 5, 18, 3); ctx.fill();
-  roundRect(x + 13, torsoY + 5, 5, 18, 3); ctx.fill();
+  if (typing) {
+    const tap = Math.sin(now / 95) * 3;
+    roundRect(x - 17, torsoY + 5, 6, 15 + tap, 3); ctx.fill();
+    roundRect(x + 11, torsoY + 5, 6, 15 - tap, 3); ctx.fill();
+  } else if (walking) {
+    roundRect(x - 18, torsoY + 5 + step, 5, 18, 3); ctx.fill();
+    roundRect(x + 13, torsoY + 5 - step, 5, 18, 3); ctx.fill();
+  } else {
+    roundRect(x - 18, torsoY + 5, 5, 18, 3); ctx.fill();
+    roundRect(x + 13, torsoY + 5, 5, 18, 3); ctx.fill();
+  }
   ctx.beginPath(); ctx.arc(x, torsoY - 10, 12, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = style.hair;
   ctx.beginPath(); ctx.arc(x, torsoY - 14, 12, Math.PI, Math.PI * 2); ctx.fill();
@@ -183,6 +200,11 @@ function drawAvatar(agent, x, y, now) {
   } else if (style.accessory === 'notebook') {
     ctx.fillStyle = '#FFF7D6'; roundRect(x + 11, torsoY + 10, 10, 13, 2); ctx.fill();
   }
+  if (seated && agent.destination === 'lounge' && Math.sin(now / 800 + x) > .5) {
+    ctx.fillStyle = '#FFF7E9'; roundRect(x + 13, torsoY + 11, 8, 9, 2); ctx.fill();
+    ctx.strokeStyle = '#FFF7E9'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x + 21, torsoY + 15, 3, -1.2, 1.2); ctx.stroke();
+  }
 }
 
 class Agent {
@@ -194,6 +216,13 @@ class Agent {
     this.from = seat;
     this.target = seat;
     this.startedAt = 0;
+    this.path = [];
+    this.segmentDuration = 0;
+    this.routeZone = null;
+    this.trail = [];
+    this.lastTrailAt = 0;
+    this.status = 'idle';
+    this.statusUntil = 0;
     this.destination = 'lounge';
     this.bubble = '';
     this.bubbleUntil = 0;
@@ -204,10 +233,40 @@ class Agent {
     const target = destination === 'work' ? CONFIG.seats[this.id] :
       (colleague ? [colleague.x + 35, colleague.y + 20] : CONFIG.loungeSeats[this.id]);
     if (!target) return;
-    this.from = [this.x, this.y];
-    this.target = target;
-    this.startedAt = performance.now();
+    const wasInLounge = this.destination === 'lounge';
+    const zoneId = colleague ? colleague.member.zone : this.member.zone;
+    const activeZone = destination === 'lounge' ? this.routeZone : zoneId;
+    const zone = colleague && colleague.destination === 'lounge' ? null : CONFIG.zones[activeZone];
+    const route = [];
+    if (zone && wasInLounge && destination !== 'lounge') {
+      const entry = roomEntry(zone);
+      route.push([CONFIG.movement.corridorX, this.y], [CONFIG.movement.corridorX, entry.outsideY],
+        [entry.x, entry.outsideY], [entry.x, entry.insideY]);
+    } else if (zone && destination === 'lounge' && !wasInLounge) {
+      const entry = roomEntry(zone);
+      route.push([entry.x, entry.insideY], [entry.x, entry.outsideY],
+        [CONFIG.movement.corridorX, entry.outsideY], [CONFIG.movement.corridorX, target[1]]);
+    }
+    route.push(target);
+    this.path = route.filter(([x, y]) => Math.hypot(x - this.x, y - this.y) > 2);
+    this.trail = [];
+    this.lastTrailAt = 0;
     this.destination = destination;
+    if (destination !== 'lounge') this.routeZone = zone ? zoneId : null;
+    this.nextSegment(performance.now());
+  }
+  nextSegment(now) {
+    if (!this.path.length) { this.startedAt = 0; return; }
+    this.from = [this.x, this.y];
+    this.target = this.path.shift();
+    const distance = Math.hypot(this.target[0] - this.x, this.target[1] - this.y);
+    this.segmentDuration = Math.max(CONFIG.movement.minSegmentMs,
+      Math.min(CONFIG.movement.maxSegmentMs, distance / CONFIG.movement.speed * 1000));
+    this.startedAt = now;
+  }
+  setStatus(status) {
+    this.status = status;
+    this.statusUntil = status === 'done' || status === 'error' ? performance.now() + 3000 : 0;
   }
   speak(text, duration = 3500) {
     const short = String(text).replace(/\s+/g, ' ').trim();
@@ -215,16 +274,31 @@ class Agent {
     this.bubbleUntil = performance.now() + duration;
   }
   update(now) {
+    if (this.statusUntil && now > this.statusUntil) { this.status = 'idle'; this.statusUntil = 0; }
+    this.trail = this.trail.filter(mark => now - mark.at < 700);
     if (!this.startedAt) return;
-    const t = Math.min((now - this.startedAt) / CONFIG.moveMs, 1);
+    const t = Math.min((now - this.startedAt) / this.segmentDuration, 1);
     const eased = t * t * (3 - 2 * t);
     this.x = this.from[0] + (this.target[0] - this.from[0]) * eased;
     this.y = this.from[1] + (this.target[1] - this.from[1]) * eased;
-    if (t === 1) this.startedAt = 0;
+    if (now - this.lastTrailAt > 90) {
+      this.trail.push({ x: this.x, y: this.y, at: now });
+      this.lastTrailAt = now;
+    }
+    if (t === 1) this.nextSegment(now);
   }
   draw(now) {
+    for (const mark of this.trail) {
+      const p = isometric ? project(mark.x, mark.y) : mark;
+      ctx.fillStyle = `rgba(255,255,255,${(1 - (now - mark.at) / 700) * .22})`;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y - 2, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
+    }
     const point = isometric ? project(this.x, this.y) : { x: this.x, y: this.y };
     const x = point.x, y = point.y;
+    if (this.status === 'working' && !this.startedAt) {
+      ctx.fillStyle = `${this.member.color}33`;
+      ctx.beginPath(); ctx.ellipse(x, y - 1, 22 + Math.sin(now / 260) * 2, 8, 0, 0, Math.PI * 2); ctx.fill();
+    }
     if (isometric) drawAvatar(this, x, y, now);
     else {
       shadow(); ctx.fillStyle = this.member.color;
@@ -243,6 +317,12 @@ class Agent {
     } else {
       ctx.lineWidth = 3; ctx.strokeStyle = '#FFF'; ctx.strokeText(this.member.name, x, labelY);
       ctx.fillStyle = CONFIG.colors.ink; ctx.fillText(this.member.name, x, labelY);
+    }
+    if (this.status === 'working' || this.status === 'done' || this.status === 'error') {
+      const symbol = this.status === 'working' ? '●' : this.status === 'done' ? '✓' : '!';
+      ctx.fillStyle = this.status === 'error' ? '#BE384B' : this.status === 'done' ? '#159568' : this.member.color;
+      ctx.beginPath(); ctx.arc(x + 26, labelY - 5, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.font = '700 10px system-ui'; ctx.fillText(symbol, x + 26, labelY - 1);
     }
     if (this.bubble && now < this.bubbleUntil) {
       ctx.font = '11px system-ui';
@@ -289,7 +369,7 @@ function drawLounge() {
   }
   ctx.fillStyle = '#FFF8E8'; ctx.font = '24px system-ui'; ctx.fillText('☕', 145, 445);
 }
-function drawDesk(id, desk) {
+function drawDesk(id, desk, now) {
   shadow(); ctx.fillStyle = '#D9D3C8'; roundRect(desk.x, desk.y, desk.w, desk.h, 8); ctx.fill(); clearShadow();
   ctx.strokeStyle = '#BEB7AA'; ctx.stroke();
   const width = Math.min(70, desk.w - 16);
@@ -299,6 +379,10 @@ function drawDesk(id, desk) {
   ctx.fillRect(desk.x + (desk.w - width) / 2 + 8, desk.y + 17, width * .34, 2);
   ctx.fillStyle = '#74B4C3';
   ctx.fillRect(desk.x + (desk.w - width) / 2 + 8, desk.y + 24, width * .55, 2);
+  if (agents[id]?.status === 'working' && agents[id].destination === 'work') {
+    ctx.fillStyle = TEAM_MEMBERS[id].color;
+    ctx.fillRect(desk.x + (desk.w - width) / 2 + 8, desk.y + 30, 8 + Math.abs(Math.sin(now / 280)) * (width * .47), 2);
+  }
   ctx.fillStyle = '#F2F3F2'; roundRect(desk.x + desk.w / 2 - 26, desk.y + 49, 52, 9, 2); ctx.fill();
   ctx.strokeStyle = '#A0B2B4'; ctx.lineWidth = 1;
   for (let x = -20; x <= 18; x += 7) {
@@ -316,11 +400,11 @@ function drawDesk(id, desk) {
   ctx.beginPath(); ctx.moveTo(chairX - 20, chairY - 12); ctx.lineTo(chairX - 20, chairY + 4);
   ctx.moveTo(chairX + 20, chairY - 12); ctx.lineTo(chairX + 20, chairY + 4); ctx.stroke();
 }
-function drawPlanOffice() {
+function drawPlanOffice(now) {
   ctx.fillStyle = CONFIG.colors.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
   Object.entries(CONFIG.zones).forEach(([id, zone]) => drawZone(id, zone));
   drawLounge();
-  Object.entries(CONFIG.desks).forEach(([id, desk]) => drawDesk(id, desk));
+  Object.entries(CONFIG.desks).forEach(([id, desk]) => drawDesk(id, desk, now));
 }
 function polygon(points, fill, stroke = null) {
   ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
@@ -331,33 +415,39 @@ function polygon(points, fill, stroke = null) {
 function diamond(x, y, w, h, fill, stroke) {
   polygon([project(x, y), project(x + w, y), project(x + w, y + h), project(x, y + h)], fill, stroke);
 }
-function drawRoom(zone) {
+function drawRoom(id, zone) {
   const h = 52;
   const backA = project(zone.x, zone.y), backB = project(zone.x + zone.w, zone.y);
   const leftC = project(zone.x, zone.y + zone.h);
-  polygon([backA, backB, { x: backB.x, y: backB.y - h }, { x: backA.x, y: backA.y - h }], ISO_THEME.glass, ISO_THEME.glassEdge);
+  const entry = roomEntry(zone);
+  for (const [start, end] of entry.back ? [[0, .38], [.62, 1]] : [[0, 1]]) {
+    const a = project(zone.x + zone.w * start, zone.y), b = project(zone.x + zone.w * end, zone.y);
+    polygon([a, b, { x: b.x, y: b.y - h }, { x: a.x, y: a.y - h }], ISO_THEME.glass, ISO_THEME.glassEdge);
+  }
   polygon([backA, leftC, { x: leftC.x, y: leftC.y - h }, { x: backA.x, y: backA.y - h }], 'rgba(148, 190, 205, .30)', ISO_THEME.glassEdge);
   ctx.strokeStyle = ISO_THEME.glassEdge; ctx.lineWidth = 2;
   for (const point of [backA, backB, leftC]) {
     ctx.beginPath(); ctx.moveTo(point.x, point.y); ctx.lineTo(point.x, point.y - h); ctx.stroke();
   }
   // Perfis verticais deixam a divisão das salas visível sem esconder as mesas.
-  for (const ratio of [.33, .66]) {
+  for (const ratio of entry.back ? [.38, .62] : [.33, .66]) {
     const p = project(zone.x + zone.w * ratio, zone.y);
     ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - h); ctx.stroke();
   }
   ctx.strokeStyle = '#FFFFFF88'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(backA.x, backA.y - h * .48);
-  ctx.lineTo(backB.x, backB.y - h * .48); ctx.stroke();
+  for (const [start, end] of entry.back ? [[0, .38], [.62, 1]] : [[0, 1]]) {
+    const a = project(zone.x + zone.w * start, zone.y), b = project(zone.x + zone.w * end, zone.y);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - h * .48); ctx.lineTo(b.x, b.y - h * .48); ctx.stroke();
+  }
   const frontY = zone.y + zone.h;
-  for (const [start, end] of [[0, .32], [.68, 1]]) {
+  for (const [start, end] of entry.back ? [[0, 1]] : [[0, .32], [.68, 1]]) {
     const a = project(zone.x + zone.w * start, frontY);
     const b = project(zone.x + zone.w * end, frontY);
     polygon([a, b, { x: b.x, y: b.y - 12 }, { x: a.x, y: a.y - 12 }], '#AECAD266', '#DDEFF0');
   }
-  const entry = project(zone.x + zone.w / 2, frontY - 14);
+  const threshold = project(entry.x, entry.insideY);
   ctx.fillStyle = '#E9F5EF77';
-  ctx.beginPath(); ctx.ellipse(entry.x, entry.y, 24, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(threshold.x, threshold.y, 24, 5, 0, 0, Math.PI * 2); ctx.fill();
 }
 function drawRoomSign(id, zone) {
   const location = id === 'lounge'
@@ -479,7 +569,7 @@ function drawIsoWalls() {
     ctx.beginPath(); ctx.moveTo(p.x + 33, p.y - 114); ctx.lineTo(p.x + 33, p.y - 60); ctx.stroke();
   }
 }
-function drawIsoDesk(id, desk) {
+function drawIsoDesk(id, desk, now) {
   const centerX = desk.x + desk.w / 2;
   const floor = project(centerX, desk.y + desk.h / 2);
   ctx.fillStyle = '#10223835';
@@ -510,6 +600,13 @@ function drawIsoDesk(id, desk) {
   ctx.fillRect(monitor.x - screenWidth / 2 + 7, monitor.y - 23, screenWidth * .59, 2);
   ctx.fillStyle = '#84A0AD';
   ctx.fillRect(monitor.x - screenWidth / 2 + 7, monitor.y - 17, screenWidth * .45, 2);
+  if (agents[id]?.status === 'working' && agents[id].destination === 'work') {
+    ctx.fillStyle = TEAM_MEMBERS[id].color;
+    const pulse = .35 + Math.abs(Math.sin(now / 300)) * .5;
+    ctx.globalAlpha = pulse;
+    ctx.fillRect(monitor.x - screenWidth / 2 + 7, monitor.y - 13, 7 + Math.abs(Math.sin(now / 420)) * screenWidth * .49, 2);
+    ctx.globalAlpha = 1;
+  }
   ctx.fillStyle = '#96B6BD44';
   polygon([{ x: monitor.x + 3, y: monitor.y - 33 },
     { x: monitor.x + screenWidth / 2 - 3, y: monitor.y - 33 },
@@ -534,7 +631,7 @@ function drawIsoDesk(id, desk) {
   const [chairX, chairY] = CONFIG.seats[id];
   drawIsoChair(chairX, chairY);
 }
-function drawIsoOffice() {
+function drawIsoOffice(now) {
   const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
   background.addColorStop(0, ISO_THEME.backdropTop);
   background.addColorStop(1, ISO_THEME.backdropBottom);
@@ -551,17 +648,17 @@ function drawIsoOffice() {
   drawIsoWalls();
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
     diamond(zone.x, zone.y, zone.w, zone.h, ISO_THEME.zones[id].floor, '#FFF4DAA0');
-    if (id !== 'lounge') drawRoom(zone);
+    if (id !== 'lounge') drawRoom(id, zone);
   }
   drawCoffeeArea();
   Object.entries(CONFIG.desks).sort((a, b) => (a[1].x + a[1].y) - (b[1].x + b[1].y))
-    .forEach(([id, desk]) => drawIsoDesk(id, desk));
+    .forEach(([id, desk]) => drawIsoDesk(id, desk, now));
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
     if (id !== 'lounge') drawPlanter(zone.x + zone.w - 25, zone.y + zone.h - 48);
     drawRoomSign(id, zone);
   }
 }
-function drawOffice() { if (isometric) drawIsoOffice(); else drawPlanOffice(); }
+function drawOffice(now) { if (isometric) drawIsoOffice(now); else drawPlanOffice(now); }
 viewToggle.addEventListener('click', () => {
   isometric = !isometric;
   viewToggle.textContent = isometric ? 'Vista de planta' : 'Vista isométrica';
@@ -595,7 +692,11 @@ function updateCoffeeTalk(now) {
 }
 startGameLoop(canvas, {
   update(_dt, now) { Object.values(agents).forEach(agent => agent.update(now)); updateCoffeeTalk(now); },
-  render(_ctx, now) { drawOffice(); Object.values(agents).forEach(agent => agent.draw(now)); }
+  render(_ctx, now) {
+    drawOffice(now);
+    Object.values(agents).sort((a, b) => (isometric ? project(a.x, a.y).y - project(b.x, b.y).y : a.y - b.y))
+      .forEach(agent => agent.draw(now));
+  }
 });
 
 function addItem(list, text, name, kind = 'system') {
@@ -763,6 +864,7 @@ function renderTeam(team) {
 }
 socket.on('team:snapshot', renderTeam);
 socket.on('agent:state', event => {
+  agents[event.agent_id]?.setStatus(event.status);
   const item = [...ui.roster.children].find(child => child.dataset.agentId === event.agent_id);
   if (item) item.dataset.status = event.status;
   addItem(ui.logs, `${TEAM_MEMBERS[event.agent_id]?.name || event.agent_id}: ${event.status === 'working' ? 'trabalhando no CLI' : event.status === 'done' ? 'entrega pronta' : 'erro no CLI'}`);
@@ -786,7 +888,10 @@ socket.on('agent:chat', event => {
   }
 });
 socket.on('agent:move', event => { agents[event.agent_id]?.move(event.destination); addItem(ui.logs, `${event.agent_id} → ${event.destination}`); });
-socket.on('agent:event', event => addItem(ui.logs, `${event.agent_id}: ${event.message}`));
+socket.on('agent:event', event => {
+  agents[event.agent_id]?.setStatus(event.status === 'coding' ? 'working' : 'idle');
+  addItem(ui.logs, `${event.agent_id}: ${event.message}`);
+});
 socket.on('task:snapshot', tasks => { ui.board.replaceChildren(); [...tasks].reverse().forEach(renderTask); });
 socket.on('task:update', renderTask);
 socket.on('office:updated', () => { ui.officeUpdate.hidden = false; });
