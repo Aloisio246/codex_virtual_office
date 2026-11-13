@@ -10,7 +10,7 @@ Escritório local para nove agentes, com chat, voz, quadro de tarefas e execuç�
 4. Consulte os logs com `docker compose logs -f agency`.
 5. Encerre com `docker compose down`. O volume `agency-data` preserva conversas e tarefas.
 
-O Compose monta a pasta local `~/.codex` no contêiner para reutilizar o login existente do Codex CLI. Esse diretório contém credenciais; use esta configuração apenas no seu computador. Se a conexão não aparecer no menu, faça `codex login` no host e recrie o contêiner. O servidor continua funcional em modo de demonstração sem login.
+O Compose monta somente `~/.codex/auth.json` em modo de leitura e copia o login para a configuração isolada do Codex no contêiner. Faça `codex login` no host antes de iniciar. Esse arquivo contém credenciais; use esta configuração apenas no seu computador. Se o login expirar, renove-o no host e recrie o contêiner. Para usar apenas a demonstração sem login, remova a montagem de `auth.json` do Compose.
 
 ## Execução local
 
@@ -21,3 +21,5 @@ Rode `npm install` e `npm start`. O servidor fica em `http://localhost:3000`. `n
 Os perfis e permissões atuais estão em `agents.js`; as nove instruções de trabalho ficam em `agent-skills/`. As tarefas reais executam o Codex CLI. Apenas o Designer pode modificar os arquivos visuais, em uma cópia temporária validada antes de aplicar. As demais tarefas entregam texto para revisão no chat e no quadro.
 
 O OpenAI Docs MCP é público e somente leitura. As integrações externas e seus acessos ficam para uma etapa posterior.
+
+No Docker, o OpenAI Docs MCP é configurado automaticamente. O Playwright MCP é usado no Codex do host para testar a interface; ele não é necessário para as tarefas de marketing dentro do contêiner.
