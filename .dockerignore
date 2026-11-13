@@ -1,0 +1,5 @@
+node_modules
+outputs
+work
+.git
+agency-state.json*

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codex Virtual Agency</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #243244; background: #F6F8FA; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 28px; }
+    .shell { max-width: 1640px; margin: 0 auto; }
+    header { margin-bottom: 22px; }
+    h1 { margin: 0 0 5px; font-size: 28px; letter-spacing: -.04em; }
+    .subtitle { margin: 0; color: #687789; font-size: 14px; }
+    main { display: flex; align-items: flex-start; gap: 20px; }
+    .office-panel { flex: 1 1 1200px; min-width: 0; }
+    .office-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .office-toolbar button:first-child { background: #243244; color: #FFF; border-color: #243244; }
+    .office-toolbar span { margin-left: auto; color: #687789; font-size: 11px; }
+    .office-panel.is-editing canvas { cursor: grab; outline: 2px solid #2D7CFF; outline-offset: 2px; }
+    .office-panel.is-dragging canvas { cursor: grabbing; }
+    canvas { display: block; width: 100%; height: auto; background: #F8FAFC; border: 1px solid #E3E8EC; border-radius: 18px; box-shadow: 0 12px 32px #1E293B0D; }
+    aside { width: 360px; flex: 0 0 360px; height: 780px; display: flex; flex-direction: column; gap: 12px; }
+    section { min-height: 0; display: flex; flex-direction: column; padding: 16px; background: #FFF; border: 1px solid #E3E8EC; border-radius: 18px; box-shadow: 0 8px 24px #1E293B09; }
+    .board-section { flex: 1; }
+    .logs-section { flex: 1; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    h2 { margin: 0; font-size: 15px; letter-spacing: -.01em; }
+    #connection { font-size: 11px; color: #B45309; white-space: nowrap; }
+    ul { min-height: 0; flex: 1; list-style: none; margin: 0; padding: 4px 2px; overflow-y: auto; overflow-wrap: anywhere; }
+    #chatMessages, #logs { display: flex; flex-direction: column; gap: 9px; }
+    .message { display: flex; flex-direction: column; gap: 3px; max-width: 88%; width: fit-content; padding: 9px 12px; border-radius: 14px; font-size: 12px; line-height: 1.45; }
+    .message strong { font-size: 11px; font-weight: 700; opacity: .8; }
+    .message--team, .message--system { align-self: flex-start; color: #344054; background: #F1F4F6; border-bottom-left-radius: 4px; }
+    .message--user { align-self: flex-end; color: #FFF; background: #2D7CFF; border-bottom-right-radius: 4px; }
+    #logs .message { max-width: 100%; color: #58677A; background: #F5F7F8; font-size: 11px; }
+    #taskBoard { gap: 7px; }
+    .task-card { padding: 8px 10px; border: 1px solid #E3E8EC; border-radius: 10px; background: #FAFBFC; font-size: 11px; }
+    .task-card strong { display: block; margin-bottom: 3px; font-size: 12px; }
+    .task-card small { color: #687789; }
+    .task-card[data-status="working"] { border-left: 3px solid #2D7CFF; }
+    .task-card[data-status="done"] { border-left: 3px solid #10B981; }
+    .task-card[data-status="cancelled"] { border-left: 3px solid #94A3B8; }
+    .task-card[data-status="failed"] { border-left: 3px solid #E11D48; }
+    .team-section { flex: 1.2; }
+    #teamRoster { display: grid; gap: 8px; }
+    .team-member { display: grid; grid-template-columns: 9px 1fr; gap: 9px; padding: 9px; border: 1px solid #E3E8EC; border-radius: 11px; background: #FAFBFC; font-size: 11px; }
+    .team-member__dot { width: 9px; height: 9px; margin-top: 4px; border-radius: 50%; background: var(--agent-color); }
+    .team-member strong { display: block; font-size: 12px; }
+    .team-member small { display: block; color: #687789; line-height: 1.4; }
+    .team-member[data-status="working"] { border-color: #2D7CFF; background: #EFF6FF; }
+    .team-member[data-status="error"] { border-color: #E11D48; }
+    .sim-badge { color: #9A6700; background: #FFF5D6; border-radius: 6px; padding: 2px 5px; margin-left: 5px; }
+    form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    input { flex: 1 1 100%; min-width: 0; padding: 11px 12px; color: #243244; background: #FFF; border: 1px solid #D7DFE5; border-radius: 10px; font: inherit; font-size: 13px; outline: none; }
+    input:focus { border-color: #2D7CFF; box-shadow: 0 0 0 3px #2D7CFF1C; }
+    button { border: 1px solid #D7DFE5; border-radius: 9px; padding: 9px 11px; background: #FFF; color: #243244; font: inherit; font-size: 12px; cursor: pointer; }
+    button:hover { background: #F5F7FA; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    button[type="submit"] { background: #2D7CFF; border-color: #2D7CFF; color: #FFF; font-weight: 600; }
+    button[type="submit"]:hover { background: #1766E5; }
+    #voiceStatus { min-height: 15px; margin: 7px 0 0; color: #687789; font-size: 11px; }
+    .chat-dock { position: fixed; z-index: 6; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(680px, calc(100vw - 32px)); }
+    #officeUpdate { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; padding: 9px 12px; border-radius: 11px; background: #EAF7EF; color: #155B36; box-shadow: 0 8px 25px #0004; font-size: 12px; }
+    #officeUpdate[hidden] { display: none; }
+    #officeUpdate button { background: #166534; color: #FFF; border: 0; white-space: nowrap; }
+    .chat-history-panel { display: flex; flex-direction: column; height: min(420px, 52dvh); margin-bottom: 10px; padding: 12px; overflow: hidden; background: #FFF; border: 1px solid #D9E1E8; border-radius: 18px; box-shadow: 0 16px 48px #0005; }
+    .chat-history-panel[hidden] { display: none; }
+    .chat-history-header { display: flex; justify-content: space-between; align-items: center; padding: 0 4px 8px; font-size: 13px; }
+    .chat-history-header button { padding: 3px 8px; border: 0; font-size: 20px; line-height: 1; }
+    #chatMessages { min-height: 0; flex: 1; padding: 8px 4px; overflow-y: auto; scrollbar-width: thin; }
+    #chatMessages .message { box-shadow: none; }
+    #chatForm { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px; margin: 0; padding: 5px 6px 5px 15px; background: #FFF; border: 1px solid #D9E1E8; border-radius: 999px; box-shadow: 0 12px 36px #0004; }
+    #chatInput { flex: 1 1 auto; min-width: 0; padding: 10px 3px; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+    #chatInput:focus { border: 0; box-shadow: none; }
+    #chatForm button { flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; font-size: 18px; }
+    #chatHistoryToggle { position: relative; background: transparent; color: #475569; }
+    #chatHistoryToggle[aria-expanded="true"] { background: #EAF2FF; color: #2D7CFF; }
+    #chatUnread { position: absolute; top: -2px; right: -3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 999px; background: #2D7CFF; color: #FFF; font-size: 10px; line-height: 16px; }
+    #chatUnread[hidden] { display: none; }
+    #voiceButton { background: transparent; }
+    #voiceButton[aria-pressed="true"] { background: #FEE2E2; color: #B91C1C; }
+    #chatForm button[type="submit"] { background: #2D7CFF; color: #FFF; }
+    #voiceStatus { margin: 5px 16px 0; color: #FFF; text-shadow: 0 1px 3px #000; }
+    .codex-connection { padding: 12px 14px; background: #FFF; border: 1px solid #E3E8EC; border-radius: 13px; }
+    .codex-connection strong { display: block; margin-bottom: 8px; font-size: 13px; }
+    #codexStatus { display: block; margin-top: 8px; color: #687789; font-size: 11px; }
+    /* A cena ocupa toda a janela; os controles flutuam sobre ela. */
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { padding: 0; }
+    .shell, main, .office-panel { width: 100%; height: 100%; max-width: none; margin: 0; }
+    main { display: block; }
+    .office-panel { position: fixed; inset: 0; }
+    canvas { width: 100vw; height: 100vh; border: 0; border-radius: 0; box-shadow: none; background: #0D1929; }
+    header { position: fixed; z-index: 5; top: 18px; left: 20px; margin: 0; padding: 10px 14px; border-radius: 13px; color: #FFF; background: #172536dd; backdrop-filter: blur(10px); box-shadow: 0 8px 24px #0003; }
+    h1 { font-size: 18px; }
+    .subtitle { color: #D1DAE4; font-size: 11px; }
+    .office-toolbar { position: static; z-index: auto; display: flex; flex-wrap: wrap; margin: 0; padding: 12px; border: 1px solid #E3E8EC; border-radius: 13px; background: #FFF; }
+    .office-toolbar span { width: 100%; color: #687789; }
+    #menuToggle { position: fixed; z-index: 12; top: 20px; right: 20px; padding: 11px 16px; color: #FFF; background: #243244; border-color: #44556B; font-size: 13px; box-shadow: 0 8px 24px #0003; }
+    #menuToggle[aria-expanded="true"] { background: #2D7CFF; border-color: #2D7CFF; }
+    #menuBackdrop { position: fixed; z-index: 9; inset: 0; background: #06111b88; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    body.menu-open #menuBackdrop { opacity: 1; pointer-events: auto; }
+    aside { position: fixed; z-index: 10; top: 0; right: 0; width: min(420px, 100vw); height: 100dvh; padding: 82px 14px 14px; background: #F6F8FA; box-shadow: -18px 0 48px #0003; transform: translateX(102%); transition: transform .24s ease; }
+    body.menu-open aside { transform: translateX(0); }
+    body.menu-open .chat-dock { z-index: 11; left: 16px; right: calc(min(420px, 100vw) + 16px); width: auto; transform: none; }
+    section { box-shadow: none; }
+    @media (max-width: 650px) {
+      header { top: 12px; left: 12px; max-width: calc(100vw - 135px); }
+      h1 { font-size: 15px; }
+      .subtitle { display: none; }
+      #menuToggle { top: 12px; right: 12px; }
+      .office-toolbar span { display: block; }
+      body.menu-open .chat-dock { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <button type="button" id="menuToggle" aria-controls="sideMenu" aria-expanded="false">☰ Menu</button>
+  <div id="menuBackdrop" aria-hidden="true"></div>
+  <div class="shell">
+    <header>
+      <h1>Codex Virtual Agency</h1>
+      <p class="subtitle">Sua equipe de marketing em tempo real</p>
+    </header>
+    <main>
+      <div class="office-panel">
+        <canvas id="office" width="1200" height="780" aria-label="Planta da agência com nove agentes"></canvas>
+      </div>
+      <aside id="sideMenu" aria-label="Menu da agência" inert>
+        <div class="codex-connection">
+          <strong>Codex com conta ChatGPT</strong>
+          <button type="button" id="codexConnect">Conectar Codex</button>
+          <span id="codexStatus" role="status">Desconectado · equipe em simulação</span>
+          <button type="button" id="muteButton" aria-pressed="false">🔊 Mudo</button>
+        </div>
+        <div class="office-toolbar" aria-label="Controles do escritório">
+          <button type="button" id="viewToggle">Vista de planta</button>
+          <button type="button" id="editLayout" aria-pressed="false">Editar planta</button>
+          <button type="button" id="resetLayout">Restaurar padrão</button>
+          <span id="layoutStatus">Arraste as mesas no modo de edição</span>
+        </div>
+        <section class="board-section" aria-label="Quadro de tarefas">
+          <div class="section-header"><h2>Quadro de Tarefas</h2><span id="modeBadge" class="sim-badge">Simulação</span></div>
+          <ul id="taskBoard" aria-live="polite"></ul>
+        </section>
+        <section class="team-section" aria-label="Equipe e habilidades">
+          <div class="section-header"><h2>Equipe e Habilidades</h2></div>
+          <ul id="teamRoster"></ul>
+        </section>
+        <section class="logs-section" aria-label="Logs do sistema">
+          <div class="section-header"><h2>Logs do Sistema</h2><span id="connection">Conectando...</span></div>
+          <ul id="logs" aria-live="polite"></ul>
+        </section>
+      </aside>
+    </main>
+  </div>
+  <div class="chat-dock" aria-label="Chat da equipe">
+    <div id="officeUpdate" role="status" hidden><span>O escritório foi atualizado.</span><button type="button" id="reloadOffice">Recarregar visual</button></div>
+    <div id="chatPanel" class="chat-history-panel" hidden>
+      <div class="chat-history-header"><strong>Conversas da equipe</strong><button type="button" id="chatClose" aria-label="Fechar conversas">×</button></div>
+      <ul id="chatMessages" aria-live="polite"></ul>
+    </div>
+    <form id="chatForm">
+      <button type="button" id="chatHistoryToggle" aria-label="Abrir conversas" aria-controls="chatPanel" aria-expanded="false" title="Conversas da equipe">💬<span id="chatUnread" hidden></span></button>
+      <input type="text" id="chatInput" maxlength="500" placeholder="Escreva para Alfred..." autocomplete="off" aria-label="Mensagem para Alfred" required>
+      <button type="button" id="voiceButton" aria-label="Gravar fala" title="Gravar fala">🎙️</button>
+      <button type="submit" aria-label="Enviar mensagem" title="Enviar texto ou fala transcrita">➤</button>
+    </form>
+    <p id="voiceStatus" role="status"></p>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/game-loop.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+services:
+  agency:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - agency-data:/data
+      - ${USERPROFILE}/.codex:/root/.codex
+    restart: unless-stopped
+volumes:
+  agency-data:
