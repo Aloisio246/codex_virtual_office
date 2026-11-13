@@ -20,6 +20,8 @@ Rode `npm install` e `npm start`. O servidor fica em `http://localhost:3000`. `n
 
 Os perfis e permissões atuais estão em `agents.js`; as nove instruções de trabalho ficam em `agent-skills/`. As tarefas reais executam o Codex CLI. Apenas o Designer pode modificar os arquivos visuais, em uma cópia temporária validada antes de aplicar. As demais tarefas entregam texto para revisão no chat e no quadro.
 
+Se você enviar o endereço do site da Impulso Ads enquanto uma tarefa de marketing estiver em andamento, a agência reinicia a tarefa preservando o pedido e os responsáveis. O servidor consulta o título, a descrição e o perfil do Instagram publicados nesse site e repassa esses dados aos agentes. Isso não inclui leitura de posts, métricas ou mensagens do Instagram. O comando “todos vão para suas cadeiras” move a equipe para os respectivos postos na cena.
+
 O OpenAI Docs MCP é público e somente leitura. As integrações externas e seus acessos ficam para uma etapa posterior.
 
 No Docker, o OpenAI Docs MCP é configurado automaticamente. O Playwright MCP é usado no Codex do host para testar a interface; ele não é necessário para as tarefas de marketing dentro do contêiner.

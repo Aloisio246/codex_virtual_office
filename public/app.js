@@ -448,6 +448,12 @@ function drawRoom(id, zone) {
   const threshold = project(entry.x, entry.insideY);
   ctx.fillStyle = '#E9F5EF77';
   ctx.beginPath(); ctx.ellipse(threshold.x, threshold.y, 24, 5, 0, 0, Math.PI * 2); ctx.fill();
+  const frame = project(entry.x, entry.back ? zone.y : zone.y + zone.h);
+  ctx.strokeStyle = '#F5FBF9'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(frame.x - 24, frame.y - h); ctx.lineTo(frame.x - 24, frame.y);
+  ctx.moveTo(frame.x + 24, frame.y - h); ctx.lineTo(frame.x + 24, frame.y); ctx.stroke();
+  ctx.strokeStyle = '#A9C9CD'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(frame.x - 24, frame.y - h); ctx.lineTo(frame.x + 24, frame.y - h); ctx.stroke();
 }
 function drawRoomSign(id, zone) {
   const location = id === 'lounge'
@@ -464,12 +470,14 @@ function drawRoomSign(id, zone) {
 }
 function drawPlanter(x, y) {
   const p = project(x, y);
-  ctx.fillStyle = '#856652';
-  polygon([{ x: p.x - 8, y: p.y - 10 }, { x: p.x + 8, y: p.y - 10 },
-    { x: p.x + 6, y: p.y + 2 }, { x: p.x - 6, y: p.y + 2 }], '#9D7659');
-  ctx.fillStyle = '#57A077';
-  for (const [dx, dy, tilt] of [[-8, -22, -.6], [0, -29, 0], [9, -20, .6]]) {
-    ctx.beginPath(); ctx.ellipse(p.x + dx, p.y + dy, 5, 12, tilt, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#071B1940';
+  ctx.beginPath(); ctx.ellipse(p.x + 2, p.y + 3, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+  polygon([{ x: p.x - 9, y: p.y - 12 }, { x: p.x + 9, y: p.y - 12 },
+    { x: p.x + 7, y: p.y + 2 }, { x: p.x - 7, y: p.y + 2 }], '#B88666', '#E2B899');
+  ctx.fillStyle = '#325F4A'; ctx.beginPath(); ctx.ellipse(p.x, p.y - 12, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+  for (const [dx, dy, tilt, color] of [[-8, -25, -.6, '#4F9B6B'], [0, -31, 0, '#74B681'],
+    [9, -24, .6, '#3F8B63'], [-2, -23, .2, '#97C994']]) {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(p.x + dx, p.y + dy, 5, 13, tilt, 0, Math.PI * 2); ctx.fill();
   }
 }
 function drawIsoChair(x, y, color = ISO_THEME.chair) {
@@ -479,15 +487,22 @@ function drawIsoChair(x, y, color = ISO_THEME.chair) {
   ctx.fillRect(base.x - 2, base.y - 2, 4, 12);
   ctx.beginPath(); ctx.ellipse(base.x, base.y + 9, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = color;
+  shadow();
   roundRect(back.x - 15, back.y - 12, 30, 26, 9); ctx.fill();
+  clearShadow();
   ctx.fillStyle = ISO_THEME.chairLight;
   roundRect(back.x - 11, back.y - 8, 22, 17, 6); ctx.fill();
+  ctx.fillStyle = '#96B4BE88'; roundRect(back.x - 9, back.y - 6, 18, 5, 2); ctx.fill();
   ctx.fillStyle = '#2D4355';
   ctx.beginPath(); ctx.ellipse(base.x, base.y - 4, 17, 8, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#9EBAAD'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(base.x - 19, base.y - 13);
   ctx.lineTo(base.x - 19, base.y - 5); ctx.moveTo(base.x + 19, base.y - 13);
   ctx.lineTo(base.x + 19, base.y - 5); ctx.stroke();
+  ctx.fillStyle = '#D6E2DF';
+  for (const offset of [-9, 9]) {
+    ctx.beginPath(); ctx.arc(base.x + offset, base.y + 12, 2, 0, Math.PI * 2); ctx.fill();
+  }
 }
 function drawCafeTable(x, y, w, h) {
   const center = project(x + w / 2, y + h / 2);
@@ -500,7 +515,11 @@ function drawCafeTable(x, y, w, h) {
   for (const corner of [base[2], base[3]]) ctx.fillRect(corner.x - 2, corner.y - 7, 4, 10);
   polygon([top[1], top[2], base[2], base[1]], '#A47752');
   polygon([top[2], top[3], base[3], base[2]], '#B88A61');
-  polygon(top, '#E2B889', '#F6D9AD');
+  shadow(); polygon(top, '#E2B889', '#F6D9AD'); clearShadow();
+  const grainA = project(x + 8, y + h * .55, 17);
+  const grainB = project(x + w - 8, y + h * .55, 17);
+  ctx.strokeStyle = '#FFF1D0AA'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(grainA.x, grainA.y); ctx.lineTo(grainB.x, grainB.y); ctx.stroke();
 }
 function drawCafeSeat(x, y) {
   const p = project(x, y, 3);
@@ -512,7 +531,12 @@ function drawCafeSeat(x, y) {
 }
 function drawCoffeeArea() {
   const lounge = CONFIG.zones.lounge;
-  diamond(lounge.x + 22, lounge.y + 170, lounge.w - 44, 400, '#5A9B8170', '#D7EEE2A0');
+  shadow(); diamond(lounge.x + 22, lounge.y + 170, lounge.w - 44, 400, '#5A9B8170', '#D7EEE2A0'); clearShadow();
+  for (let y = lounge.y + 185; y < lounge.y + 555; y += 44) {
+    const a = project(lounge.x + 29, y, 1), b = project(lounge.x + lounge.w - 29, y, 1);
+    ctx.strokeStyle = '#DDF4E856'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
   // Balcão com máquina, copos e atendente.
   const counter = [project(44, 178, 25), project(225, 178, 25),
     project(225, 227, 25), project(44, 227, 25)];
@@ -526,9 +550,13 @@ function drawCoffeeArea() {
   ctx.fillStyle = '#FFF7E8'; ctx.font = '700 11px system-ui'; ctx.textAlign = 'center';
   ctx.fillText('CAFÉ', cafeSign.x, cafeSign.y);
   const machine = project(82, 190, 30);
-  ctx.fillStyle = '#263B4F'; roundRect(machine.x - 14, machine.y - 24, 28, 24, 4); ctx.fill();
+  ctx.fillStyle = '#263B4F'; roundRect(machine.x - 14, machine.y - 29, 28, 29, 4); ctx.fill();
   ctx.fillStyle = '#79BAC2'; roundRect(machine.x - 10, machine.y - 20, 20, 9, 2); ctx.fill();
   ctx.fillStyle = '#DDE9E7'; ctx.fillRect(machine.x - 8, machine.y - 8, 16, 4);
+  ctx.fillStyle = '#E6F8F2'; ctx.beginPath(); ctx.arc(machine.x + 8, machine.y - 25, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#B5D4D4'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(machine.x - 4, machine.y + 1); ctx.lineTo(machine.x - 4, machine.y + 8);
+  ctx.moveTo(machine.x + 4, machine.y + 1); ctx.lineTo(machine.x + 4, machine.y + 8); ctx.stroke();
   const cups = project(198, 191, 31);
   ctx.fillStyle = '#F8F5EE';
   for (let i = 0; i < 3; i++) {
@@ -547,6 +575,12 @@ function drawCoffeeArea() {
   ctx.fillStyle = '#FAF5E9'; roundRect(mug.x - 8, mug.y - 10, 16, 13, 4); ctx.fill();
   ctx.strokeStyle = '#FAF5E9'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(mug.x + 9, mug.y - 4, 4, -1.3, 1.3); ctx.stroke();
+  for (const [x, y] of [[87, 288], [173, 288], [70, 550], [185, 548]]) {
+    const cup = project(x, y, 17);
+    ctx.fillStyle = '#FCF6E9'; roundRect(cup.x - 3, cup.y - 5, 6, 6, 2); ctx.fill();
+    ctx.strokeStyle = '#FCF6E9'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cup.x + 4, cup.y - 2, 2, -.8, 1.2); ctx.stroke();
+  }
   for (const [x, y] of Object.values(CONFIG.loungeSeats)) drawCafeSeat(x, y);
 }
 function drawIsoWalls() {
@@ -557,6 +591,13 @@ function drawIsoWalls() {
   ctx.strokeStyle = '#90A7B8'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(baseB.x, baseB.y); ctx.lineTo(baseA.x, baseA.y);
   ctx.lineTo(baseC.x, baseC.y); ctx.stroke();
+  const trimA = project(0, 0, 16), trimB = project(1200, 0, 16), trimC = project(0, 780, 16);
+  ctx.strokeStyle = '#98ADAD'; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(trimB.x, trimB.y); ctx.lineTo(trimA.x, trimA.y);
+  ctx.lineTo(trimC.x, trimC.y); ctx.stroke();
+  ctx.strokeStyle = '#D0DDDA'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(trimB.x, trimB.y - 4); ctx.lineTo(trimA.x, trimA.y - 4);
+  ctx.lineTo(trimC.x, trimC.y - 4); ctx.stroke();
   for (let i = 0; i < 5; i++) {
     const p = project(140 + i * 200, 0);
     polygon([{ x: p.x, y: p.y - 132 }, { x: p.x + 65, y: p.y - 107 },
@@ -567,6 +608,16 @@ function drawIsoWalls() {
       { x: p.x + 25, y: p.y - 66 }, { x: p.x + 5, y: p.y - 71 }], '#D4EDF0AA');
     ctx.strokeStyle = '#E8F5F5'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(p.x + 33, p.y - 114); ctx.lineTo(p.x + 33, p.y - 60); ctx.stroke();
+    ctx.fillStyle = '#F5F6EB99';
+    polygon([{ x: p.x + 6, y: p.y - 71 }, { x: p.x + 60, y: p.y - 50 },
+      { x: p.x + 60, y: p.y - 45 }, { x: p.x + 6, y: p.y - 66 }], '#F5F6EB99');
+  }
+  for (const x of [300, 580, 900]) {
+    const p = project(x, 0);
+    polygon([{ x: p.x - 16, y: p.y - 77 }, { x: p.x + 17, y: p.y - 65 },
+      { x: p.x + 17, y: p.y - 32 }, { x: p.x - 16, y: p.y - 44 }], '#D7BC9B', '#F0DEC4');
+    polygon([{ x: p.x - 12, y: p.y - 72 }, { x: p.x + 13, y: p.y - 62 },
+      { x: p.x + 13, y: p.y - 37 }, { x: p.x - 12, y: p.y - 47 }], '#66868C');
   }
 }
 function drawIsoDesk(id, desk, now) {
@@ -580,6 +631,14 @@ function drawIsoDesk(id, desk, now) {
     project(desk.x + desk.w, desk.y + desk.h), project(desk.x, desk.y + desk.h)];
   ctx.fillStyle = '#715741';
   for (const corner of [base[2], base[3]]) ctx.fillRect(corner.x - 3, corner.y - 2, 6, 16);
+  const pedestal = project(desk.x + 13, desk.y + desk.h - 9, 8);
+  polygon([{ x: pedestal.x - 11, y: pedestal.y - 11 }, { x: pedestal.x + 10, y: pedestal.y - 4 },
+    { x: pedestal.x + 10, y: pedestal.y + 12 }, { x: pedestal.x - 11, y: pedestal.y + 5 }], '#A57858', '#795A46');
+  ctx.strokeStyle = '#D8BA96'; ctx.lineWidth = 1;
+  for (const offset of [-4, 3]) {
+    ctx.beginPath(); ctx.moveTo(pedestal.x - 8, pedestal.y + offset);
+    ctx.lineTo(pedestal.x + 7, pedestal.y + offset + 5); ctx.stroke();
+  }
   polygon([top[1], top[2], base[2], base[1]], ISO_THEME.deskSide, '#8C6C53');
   polygon([top[2], top[3], base[3], base[2]], ISO_THEME.deskFront, '#88684E');
   shadow(); polygon(top, ISO_THEME.deskTop, '#F7DEBB'); clearShadow();
@@ -613,6 +672,7 @@ function drawIsoDesk(id, desk, now) {
     { x: monitor.x + screenWidth / 2 - 3, y: monitor.y - 9 }], '#96B6BD44');
   ctx.fillStyle = '#4B6070'; ctx.fillRect(monitor.x - 2, monitor.y - 4, 4, 9);
   ctx.fillStyle = '#DCE5E3'; roundRect(monitor.x - 11, monitor.y + 5, 22, 4, 2); ctx.fill();
+  ctx.fillStyle = '#101B29'; roundRect(monitor.x - screenWidth / 2 - 2, monitor.y - 38, screenWidth + 4, 2, 1); ctx.fill();
 
   const keyboard = [project(centerX - 28, desk.y + 42, 29), project(centerX + 28, desk.y + 42, 29),
     project(centerX + 28, desk.y + 57, 29), project(centerX - 28, desk.y + 57, 29)];
@@ -621,6 +681,12 @@ function drawIsoDesk(id, desk, now) {
   for (let row = 0; row < 2; row++) {
     const a = project(centerX - 22, desk.y + 46 + row * 6, 29);
     const b = project(centerX + 22, desk.y + 46 + row * 6, 29);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  for (let key = -18; key <= 18; key += 9) {
+    const a = project(centerX + key, desk.y + 44, 30);
+    const b = project(centerX + key, desk.y + 55, 30);
+    ctx.strokeStyle = '#B7C6C4'; ctx.lineWidth = .7;
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
   }
   const mouse = project(desk.x + desk.w - 13, desk.y + 48, 29);
@@ -643,7 +709,13 @@ function drawIsoOffice(now) {
     { x: edgeA.x, y: edgeA.y + 15 }], '#77543E', '#A47652');
   for (let x = 0; x < 1200; x += 80) for (let y = 0; y < 780; y += 80) {
     diamond(x, y, 80, 80, (Math.floor(x / 80) + Math.floor(y / 80)) % 2
-      ? ISO_THEME.floorLight : ISO_THEME.floorDark, '#E5BE93');
+      ? ISO_THEME.floorLight : ISO_THEME.floorDark, '#E5BE9388');
+    const a = project(x + 9, y + 14), b = project(x + 69, y + 14);
+    ctx.strokeStyle = '#FFF5DC45'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    const c = project(x + 9, y + 65), d = project(x + 69, y + 65);
+    ctx.strokeStyle = '#8F674022';
+    ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.stroke();
   }
   drawIsoWalls();
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
@@ -702,7 +774,15 @@ startGameLoop(canvas, {
 function addItem(list, text, name, kind = 'system') {
   const item = document.createElement('li'); item.className = `message message--${kind}`;
   if (name) { const strong = document.createElement('strong'); strong.textContent = name; item.append(strong); }
-  const body = document.createElement('span'); body.textContent = text; item.append(body);
+  const body = document.createElement('span');
+  if (list === ui.messages && kind !== 'user') {
+    for (const part of String(text).split(/(\*\*[^*]+\*\*)/g)) {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const emphasis = document.createElement('b'); emphasis.textContent = part.slice(2, -2); body.append(emphasis);
+      } else body.append(document.createTextNode(part));
+    }
+  } else body.textContent = text;
+  item.append(body);
   list.append(item); while (list.children.length > 50) list.firstElementChild.remove();
   list.scrollTop = list.scrollHeight;
 }

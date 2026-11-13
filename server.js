@@ -60,6 +60,30 @@ function mentions(query, word) {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(^|\\W)${escaped}(?=$|\\W)`, 'u').test(query);
 }
+const SITE_HOST = 'impulso-ads.vercel.app';
+function decodeHtml(value) {
+  return value.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+async function websiteContext(message) {
+  const url = message.match(/https?:\/\/[^\s<>"']+/i)?.[0]?.replace(/[),.;]+$/, '');
+  if (!url) return '';
+  let parsed;
+  try { parsed = new URL(url); } catch { return ''; }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== SITE_HOST) return '';
+  try {
+    const response = await fetch(parsed, { signal: AbortSignal.timeout(8000), redirect: 'error' });
+    if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) return '';
+    const html = (await response.text()).slice(0, 200000);
+    const title = decodeHtml(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '').trim();
+    const description = decodeHtml(html.match(/<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']+)/i)?.[1] || '').trim();
+    const instagram = decodeHtml(html.match(/https:\/\/(?:www\.)?instagram\.com\/[\w.]+\/?/i)?.[0] || '');
+    return `Dados consultados no site ${parsed.origin}: título: ${title.slice(0, 150)}; descrição: ${description.slice(0, 450)}; Instagram: ${instagram || 'não identificado'}.`;
+  } catch (error) {
+    console.warn('Falha ao ler site informado:', error.message);
+    return `O servidor não conseguiu consultar ${parsed.origin} neste momento.`;
+  }
+}
 function isOfficeRequest(query) {
   const place = /\b(area em comum|escritorio|planta do escritorio|canvas|cafe da equipe|sala do ceo)\b/.test(query)
     || (query.includes('cafeteria') && /\b(balcao|mesa|cadeira|maquina|atendente|ambiente)\b/.test(query));
@@ -323,20 +347,31 @@ io.on('connection', socket => {
     socket.emit('codex:state', { connected: codexEnabled, busy: false });
     chat('alfred', 'Tarefa cancelada. A equipe voltou ao café.');
   });
-  socket.on('chat:submit', value => {
+  socket.on('chat:submit', async value => {
     if (typeof value !== 'string') return;
     const prompt = value.trim();
     if (!prompt || prompt.length > 500) return;
     activeTimers.forEach(clearTimeout);
     activeTimers = [];
     const prior = tasks.find(task => task.status === 'working');
+    const followUp = prior?.kind === 'marketing' && /https?:\/\//i.test(prompt);
+    const request = followUp ? `${prior.title}\nContexto adicional do usuário: ${prompt}` : prompt;
     if (prior) { prior.status = 'cancelled'; updateTask(prior); }
     const current = ++taskSequence;
     Object.keys(TEAM_MEMBERS).forEach(id => move(id, 'lounge'));
     chat('user', prompt, 0);
     if (codexProcess) { codexProcess.cancelled = true; codexProcess.kill(); codexProcess = null; }
 
-    const query = normalize(prompt);
+    if (/\btodos\b.*\b(cadeiras|mesas|postos)\b/.test(normalize(prompt))) {
+      Object.keys(TEAM_MEMBERS).forEach(id => move(id, 'work'));
+      chat('alfred', 'Equipe, ocupem seus postos. Todos estão indo para suas mesas.');
+      return;
+    }
+    const site = await websiteContext(prompt);
+    if (current !== taskSequence) return;
+    if (site) chat('alfred', `Encontrei o site e o perfil: ${site.split('Instagram: ')[1]?.replace(/\.$/, '') || 'perfil não identificado'}. Vou usar esse contexto na tarefa.`, 5000);
+    const effectivePrompt = site ? `${request}\n${site}` : request;
+    const query = normalize(request);
     const office = isOfficeRequest(query);
     const full = /\bcomplet[oa]\b/.test(query) || query.includes('lancamento');
     const selected = office ? ['designer'] : full ? WORKERS : WORKERS.filter(id => ROUTES[id].some(word => mentions(query, word)));
@@ -345,18 +380,18 @@ io.on('connection', socket => {
       return;
     }
     if (!selected.length) {
-      if (codexEnabled) codexProcess = runCodex(socket, prompt);
+      if (codexEnabled) codexProcess = runCodex(socket, effectivePrompt);
       else chat('alfred', 'Diga qual tarefa deseja: pesquisa, criação, distribuição, performance ou comercial.');
       return;
     }
-    const task = { id: current, title: prompt, agents: selected, kind: office ? 'office' : 'marketing', status: 'working', simulated: !codexEnabled,
+    const task = { id: current, title: request, agents: selected, kind: office ? 'office' : 'marketing', status: 'working', simulated: !codexEnabled,
       createdAt: new Date().toISOString() };
     tasks.unshift(task);
     if (tasks.length > 30) tasks.length = 30;
     updateTask(task);
     if (codexEnabled) {
       socket.emit('codex:state', { connected: true, busy: true });
-      runRealTeam(socket, task, prompt, selected,
+      runRealTeam(socket, task, effectivePrompt, selected,
         () => current === taskSequence && codexEnabled,
         child => { codexProcess = child; }).finally(() => {
           if (current === taskSequence) socket.emit('codex:state', { connected: true, busy: false });
