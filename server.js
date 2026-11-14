@@ -18,7 +18,7 @@ const io = new Server(server, { allowRequest: (req, callback) => {
 const PORT = 3000;
 
 const ROUTES = {
-  pesquisa: ['pesquisa', 'tendencia', 'pauta', 'trend'],
+  pesquisa: ['pesquisa', 'pesquisar', 'pesquise', 'pesquisem', 'pesquisando', 'tendencia', 'pauta', 'trend'],
   copy: ['texto', 'copy', 'legenda', 'roteiro', 'artigo'],
   designer: ['arte', 'banner', 'criativo', 'imagem', 'design'],
   social: ['post', 'agendar', 'instagram', 'feed'],
@@ -61,24 +61,51 @@ function mentions(query, word) {
   return new RegExp(`(^|\\W)${escaped}(?=$|\\W)`, 'u').test(query);
 }
 const SITE_HOST = 'impulso-ads.vercel.app';
+const SITE_URL = `https://${SITE_HOST}/`;
 function decodeHtml(value) {
   return value.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 }
+function pageEvidence(url, html) {
+  const title = decodeHtml(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '').trim();
+  const description = decodeHtml(html.match(/<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']+)/i)?.[1] || '').trim();
+  const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] || '';
+  const excerpt = decodeHtml(main.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ').trim()).slice(0, 1800);
+  return `Fonte ${url}: título: ${title.slice(0, 150)}; descrição: ${description.slice(0, 450)}; conteúdo principal: ${excerpt || 'não extraído'}.`;
+}
 async function websiteContext(message) {
-  const url = message.match(/https?:\/\/[^\s<>"']+/i)?.[0]?.replace(/[),.;]+$/, '');
+  const explicit = message.match(/https?:\/\/[^\s<>"']+/i)?.[0]?.replace(/[),.;]+$/, '');
+  const url = explicit || (/\bimpulso\b/i.test(normalize(message)) && /\b(site|pagina|website)\b/i.test(normalize(message)) ? SITE_URL : '');
   if (!url) return '';
   let parsed;
   try { parsed = new URL(url); } catch { return ''; }
   if (parsed.protocol !== 'https:' || parsed.hostname !== SITE_HOST) return '';
   try {
     const response = await fetch(parsed, { signal: AbortSignal.timeout(8000), redirect: 'error' });
-    if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) return '';
+    if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) {
+      return `O servidor não conseguiu consultar ${parsed.origin} nesta tentativa.`;
+    }
     const html = (await response.text()).slice(0, 200000);
-    const title = decodeHtml(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '').trim();
-    const description = decodeHtml(html.match(/<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']+)/i)?.[1] || '').trim();
     const instagram = decodeHtml(html.match(/https:\/\/(?:www\.)?instagram\.com\/[\w.]+\/?/i)?.[0] || '');
-    return `Dados consultados no site ${parsed.origin}: título: ${title.slice(0, 150)}; descrição: ${description.slice(0, 450)}; Instagram: ${instagram || 'não identificado'}.`;
+    const evidence = [`Instagram encontrado na página inicial: ${instagram || 'não identificado'}.`,
+      pageEvidence(parsed.href, html)];
+    if (parsed.pathname === '/') {
+      const sections = ['/gestao-de-trafego-pago', '/tracking-e-mensuracao', '/landing-pages',
+        '/estrategia-digital', '/automacoes-e-integracoes', '/sobre'];
+      const pages = await Promise.all(sections.map(async section => {
+        const pageUrl = new URL(section, SITE_URL);
+        try {
+          const page = await fetch(pageUrl, { signal: AbortSignal.timeout(8000), redirect: 'error' });
+          if (!page.ok || !page.headers.get('content-type')?.includes('text/html')) return null;
+          return pageEvidence(pageUrl.href, (await page.text()).slice(0, 200000));
+        } catch (error) { console.warn(`Falha ao ler ${section}:`, error.message); return null; }
+      }));
+      evidence.push(...pages.filter(Boolean));
+      if (pages.some(page => !page)) evidence.push('Algumas páginas do site não puderam ser consultadas nesta tentativa.');
+    }
+    return `Consulta HTTP do servidor realizada em ${new Date().toISOString()}. As fontes abaixo são páginas públicas do site, não texto inventado pelo usuário. Cada trecho é limitado para caber no contexto do agente.\n${evidence.join('\n')}`;
   } catch (error) {
     console.warn('Falha ao ler site informado:', error.message);
     return `O servidor não conseguiu consultar ${parsed.origin} neste momento.`;
@@ -89,6 +116,12 @@ function isOfficeRequest(query) {
     || (query.includes('cafeteria') && /\b(balcao|mesa|cadeira|maquina|atendente|ambiente)\b/.test(query));
   const action = /\b(adicionar|adicione|colocar|coloque|mudar|mude|melhorar|melhore|criar|crie|quero|precisamos|escolheria|deveria|implementar|desenhar|teria|poderia)\b/.test(query);
   return place && action;
+}
+function selectAgents(query, office = isOfficeRequest(query)) {
+  const full = /\bcomplet[oa]\b/.test(query) || query.includes('lancamento');
+  const researchRequested = /\bpesquis\w*\b/.test(query);
+  return office ? ['designer'] : full ? WORKERS : WORKERS.filter(id =>
+    (id === 'pesquisa' && researchRequested) || ROUTES[id].some(word => mentions(query, word)));
 }
 function chat(id, text, duration = 3500) {
   const event = { agent_id: id, name: id === 'user' ? 'Usuário' : TEAM_MEMBERS[id].name,
@@ -160,6 +193,11 @@ function runCodex(socket, prompt) {
 function executeAgent(id, request, context, trackProcess, options = {}) {
   return new Promise(resolve => {
     const profile = TEAM_MEMBERS[id];
+    if (options.review && (!profile.capabilities.includes('review') ||
+        !profile.capabilities.includes('deliverables-read'))) {
+      resolve({ ok: false, error: `${profile.name} não pode revisar entregas da equipe.` });
+      return;
+    }
     if (options.writable && !profile.capabilities.includes('visual-write')) {
       resolve({ ok: false, error: `${profile.name} não tem permissão de edição visual.` });
       return;
@@ -173,14 +211,22 @@ function executeAgent(id, request, context, trackProcess, options = {}) {
       `Você é ${profile.name}, ${profile.role}, da Codex Virtual Agency.`,
       `Experiência: ${profile.experience}. Habilidades: ${profile.skills.join(', ')}.`,
       `Personalidade profissional: ${profile.personality}.`,
-      `Ferramentas disponíveis nesta execução: ${(options.writable ? profile.tools : ['Codex CLI', 'Leitura local']).join(', ')}.`,
+      `Ferramentas disponíveis nesta execução: ${(options.writable ? profile.tools :
+        ['Codex CLI', 'Leitura local', ...(id === 'alfred' ? ['Quadro e entregas enviados no contexto', 'Dados públicos do site enviados no pedido'] : [])]).join(', ')}.`,
       `Entregável esperado: ${profile.deliverable}.`,
       `Skill da função (orientações operacionais):\n${SKILL_TEXT[id]}`,
       options.writable
         ? 'Implemente a alteração visual pedida nos arquivos app.js e/ou index.html deste diretório. Preserve chat, Socket.io, agentes e controles existentes. Não edite outros arquivos. Rode node --check app.js. Responda com um resumo curto do que realmente modificou.'
+        : options.review
+          ? 'Você está revisando as entregas já feitas pela equipe. Leia o contexto abaixo, verifique se responde ao pedido, se fontes e hipóteses estão claras, aponte lacunas reais e dê um próximo passo concreto. As páginas citadas no pedido foram consultadas por HTTP pelo servidor nesta tarefa; avalie os trechos e seus limites, sem afirmar que o site não foi consultado apenas porque o Codex CLI não tem navegação própria. Não alegue ter acessado contas externas nem executado trabalho dos especialistas.'
+        : options.managerBrief
+          ? 'Prepare um briefing curto com objetivo, responsáveis e critério de aceite. O servidor vai delegar a tarefa após sua resposta; não diga que já delegou nem que a delegação falhou. Não apresente uma pesquisa ou entrega final nesta etapa.'
         : options.officeManager
           ? 'Você vai coordenar uma alteração visual do escritório. Diga em uma frase qual mudança concreta delegará ao Designer. Não repita o pedido nem afirme que já implementou.'
           : 'Responda em português do Brasil. Faça trabalho intelectual real e entregue conteúdo útil em texto. Você está em modo somente leitura. Não alegue ter criado arquivos ou publicado campanhas.',
+      request.includes('Consulta HTTP do servidor')
+        ? 'Os trechos do site no pedido foram coletados pelo servidor agora. Use-os como evidência com os URLs indicados. Você não precisa navegar de novo; não afirme ter aberto páginas diretamente no Codex CLI. Se uma conclusão exigir conteúdo além dos trechos, identifique essa limitação.'
+        : '',
       `Contexto dos colegas: ${context || 'nenhum'}.`,
       `Pedido do usuário: ${request}`
     ].join('\n');
@@ -242,7 +288,14 @@ async function executeOfficeUpdate(request, context, trackProcess) {
 }
 
 async function runRealTeam(socket, task, prompt, selected, isCurrent, trackProcess) {
+  if (!TEAM_MEMBERS.alfred.capabilities.includes('orchestrate') ||
+      !TEAM_MEMBERS.alfred.capabilities.includes('team-read') ||
+      !TEAM_MEMBERS.alfred.capabilities.includes('task-read')) {
+    task.status = 'failed'; task.error = 'Alfred não tem capacidade de coordenação.'; updateTask(task);
+    chat('alfred', task.error); return;
+  }
   const results = [];
+  const reviewResults = [];
   const order = ['alfred', ...selected];
   for (const id of order) {
     if (!isCurrent()) return;
@@ -264,7 +317,8 @@ async function runRealTeam(socket, task, prompt, selected, isCurrent, trackProce
     const result = task.kind === 'office' && id === 'designer'
       ? await executeOfficeUpdate(prompt, context, trackProcess)
       : await executeAgent(id, prompt, context, trackProcess,
-        { officeManager: task.kind === 'office' && id === 'alfred' });
+        { officeManager: task.kind === 'office' && id === 'alfred',
+          managerBrief: task.kind === 'marketing' && id === 'alfred' });
     if (!isCurrent()) return;
     io.emit('agent:state', { agent_id: id, status: result.ok ? 'done' : 'error' });
     move(id, 'lounge');
@@ -274,6 +328,7 @@ async function runRealTeam(socket, task, prompt, selected, isCurrent, trackProce
       task.deliverables ||= {};
       task.deliverables[id] = result.text.slice(0, 5000);
       results.push(`${TEAM_MEMBERS[id].name}: ${result.text.slice(0, 900)}`);
+      if (id !== 'alfred') reviewResults.push(`${TEAM_MEMBERS[id].name}: ${result.text.slice(0, 10000)}`);
     } else {
       chat(id, `Não consegui concluir: ${result.error}`);
       task.status = 'failed';
@@ -284,13 +339,30 @@ async function runRealTeam(socket, task, prompt, selected, isCurrent, trackProce
     task.completedAgents = [...(task.completedAgents || []), id];
     updateTask(task);
   }
+  if (task.kind === 'marketing' && isCurrent()) {
+    move('alfred', 'work');
+    io.emit('agent:state', { agent_id: 'alfred', status: 'working' });
+    chat('alfred', 'Recebi as entregas. Vou revisar as conclusões e as lacunas.', 2500);
+    const reviewContext = reviewResults.join('\n\n').slice(0, 20000);
+    const review = await executeAgent('alfred', prompt, reviewContext, trackProcess, { review: true });
+    if (!isCurrent()) return;
+    io.emit('agent:state', { agent_id: 'alfred', status: review.ok ? 'done' : 'error' });
+    move('alfred', 'lounge');
+    if (review.ok) {
+      task.review = review.text.slice(0, 5000);
+      chat('alfred', task.review, 7000);
+    } else {
+      task.status = 'failed'; task.error = `A revisão final falhou: ${review.error}`;
+      updateTask(task); chat('alfred', task.error); return;
+    }
+  }
   task.status = 'done';
   task.finishedAt = new Date().toISOString();
   updateTask(task);
   if (task.kind === 'office') {
     chat('alfred', 'O Designer aplicou a mudança no escritório. Recarregue a página para vê-la.', 5000);
     io.emit('office:updated', { files: task.changedFiles || [] });
-  } else chat('alfred', 'A equipe terminou as respostas. Revise as entregas no chat antes de usar ou publicar.', 5000);
+  } else chat('alfred', 'A revisão da equipe terminou. Consulte as entregas antes de usar ou publicar.', 5000);
 }
 
 app.get('/api/team', (_req, res) => res.json(TEAM_MEMBERS));
@@ -369,12 +441,17 @@ io.on('connection', socket => {
     }
     const site = await websiteContext(prompt);
     if (current !== taskSequence) return;
-    if (site) chat('alfred', `Encontrei o site e o perfil: ${site.split('Instagram: ')[1]?.replace(/\.$/, '') || 'perfil não identificado'}. Vou usar esse contexto na tarefa.`, 5000);
+    if (site) {
+      const instagram = site.match(/https:\/\/(?:www\.)?instagram\.com\/[\w.]+\/?/)?.[0] || 'perfil não identificado';
+      chat('alfred', site.includes('Instagram encontrado')
+        ? `Consultei o site da Impulso e seis páginas internas. Instagram: ${instagram}. Vou repassar as fontes à equipe.`
+        : site, 5000);
+    }
     const effectivePrompt = site ? `${request}\n${site}` : request;
     const query = normalize(request);
     const office = isOfficeRequest(query);
     const full = /\bcomplet[oa]\b/.test(query) || query.includes('lancamento');
-    const selected = office ? ['designer'] : full ? WORKERS : WORKERS.filter(id => ROUTES[id].some(word => mentions(query, word)));
+    const selected = selectAgents(query, office);
     if (office && !codexEnabled) {
       chat('alfred', 'Para alterar o escritório, preciso da conexão com o Codex CLI. Abra o Menu e conecte o Codex.');
       return;
@@ -430,4 +507,7 @@ io.on('connection', socket => {
   });
 });
 
-server.listen(PORT, process.env.HOST || '127.0.0.1', () => console.log(`Codex Virtual Agency: http://localhost:${PORT}`));
+if (require.main === module) {
+  server.listen(PORT, process.env.HOST || '127.0.0.1', () => console.log(`Codex Virtual Agency: http://localhost:${PORT}`));
+}
+module.exports = { normalize, selectAgents, websiteContext };

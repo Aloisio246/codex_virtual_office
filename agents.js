@@ -3,8 +3,9 @@
 const TEAM_MEMBERS = {
   alfred: { name: 'Alfred', role: 'CEO / Gerência', zone: 'ceo', color: '#FF6B00',
     experience: 'Coordenação de projetos e definição de prioridades',
-    skills: ['Planejamento', 'Briefing', 'Revisão de entregas'],
-    tools: ['Codex CLI', 'Leitura local'], deliverable: 'Plano de ação e critérios de qualidade' },
+    skills: ['Planejamento', 'Delegação', 'Acompanhamento', 'Revisão de entregas'],
+    tools: ['Codex CLI', 'Leitura local', 'Quadro de tarefas', 'Entregas da equipe', 'Contexto de sites públicos'],
+    deliverable: 'Plano de ação, acompanhamento e revisão final das entregas' },
   pesquisa: { name: 'Pesquisa', role: 'Pesquisador / Trend Hunter', zone: 'inteligencia', color: '#0EA5E9',
     experience: 'Pesquisa de público, tendências e pautas',
     skills: ['Investigação', 'Síntese', 'Hipóteses de conteúdo'],
@@ -43,8 +44,9 @@ const TEAM_MEMBERS = {
 // listada como futura não concede acesso a contas externas.
 const SPECIALIZATIONS = {
   alfred: { personality: 'Calmo, direto e responsável', skillFile: 'alfred',
-    skillNames: ['marketing-plan', 'product-marketing'], capabilities: ['local-read'],
-    plannedIntegrations: ['Quadro de projetos'] },
+    skillNames: ['marketing-plan', 'product-marketing'],
+    capabilities: ['local-read', 'team-read', 'task-read', 'deliverables-read', 'orchestrate', 'review', 'site-context'],
+    plannedIntegrations: [] },
   pesquisa: { personality: 'Curioso, cético e preciso', skillFile: 'pesquisa',
     skillNames: ['customer-research', 'content-strategy'], capabilities: ['local-read'],
     plannedIntegrations: ['Busca web', 'Analytics'] },

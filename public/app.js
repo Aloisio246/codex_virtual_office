@@ -35,33 +35,33 @@ const CONFIG = {
     distribuicao: 'rgba(245,158,11,.12)', performance: 'rgba(16,185,129,.11)',
     comercial: 'rgba(99,102,241,.11)' },
   zones: {
-    lounge: { x: 100, y: 535, w: 1160, h: 235, title: 'Café da Equipe' },
-    inteligencia: { x: 20, y: 55, w: 180, h: 355, title: 'Inteligência' },
-    criacao: { x: 210, y: 55, w: 245, h: 355, title: 'Criação' },
-    distribuicao: { x: 465, y: 55, w: 170, h: 355, title: 'Distribuição' },
-    performance: { x: 645, y: 55, w: 170, h: 355, title: 'Performance' },
-    comercial: { x: 825, y: 55, w: 330, h: 355, title: 'Comercial' },
-    ceo: { x: 1165, y: 55, w: 170, h: 355, title: 'CEO · Alfred' }
+    lounge: { x: 100, y: 535, w: 1340, h: 235, title: 'Café da Equipe' },
+    inteligencia: { x: 20, y: 55, w: 210, h: 355, title: 'Inteligência' },
+    criacao: { x: 240, y: 55, w: 285, h: 355, title: 'Criação' },
+    distribuicao: { x: 535, y: 55, w: 190, h: 355, title: 'Distribuição' },
+    performance: { x: 735, y: 55, w: 190, h: 355, title: 'Performance' },
+    comercial: { x: 935, y: 55, w: 370, h: 355, title: 'Comercial' },
+    ceo: { x: 1315, y: 55, w: 205, h: 355, title: 'CEO · Alfred' }
   },
   desks: {
-    pesquisa: { x: 50, y: 160, w: 120, h: 65 },
-    copy: { x: 228, y: 160, w: 100, h: 65 },
-    designer: { x: 338, y: 160, w: 100, h: 65 },
-    social: { x: 490, y: 160, w: 120, h: 65 },
-    trafego: { x: 670, y: 160, w: 120, h: 65 },
-    sdr: { x: 838, y: 160, w: 94, h: 65 },
-    closer: { x: 944, y: 160, w: 94, h: 65 },
-    cs: { x: 1050, y: 160, w: 94, h: 65 },
-    alfred: { x: 1190, y: 160, w: 120, h: 65 }
+    pesquisa: { x: 65, y: 160, w: 120, h: 65 },
+    copy: { x: 260, y: 160, w: 110, h: 65 },
+    designer: { x: 390, y: 160, w: 110, h: 65 },
+    social: { x: 570, y: 160, w: 120, h: 65 },
+    trafego: { x: 770, y: 160, w: 120, h: 65 },
+    sdr: { x: 955, y: 160, w: 100, h: 65 },
+    closer: { x: 1070, y: 160, w: 100, h: 65 },
+    cs: { x: 1185, y: 160, w: 100, h: 65 },
+    alfred: { x: 1357, y: 160, w: 120, h: 65 }
   },
-  seats: { pesquisa: [110, 275], copy: [278, 275], designer: [388, 275],
-    social: [550, 275], trafego: [730, 275], sdr: [885, 275], closer: [991, 275], cs: [1097, 275], alfred: [1250, 275] },
-  loungeSeats: { pesquisa: [250, 650], copy: [360, 670], designer: [480, 650],
-    social: [600, 670], trafego: [720, 650], sdr: [840, 670],
-    closer: [960, 650], cs: [1080, 670], alfred: [660, 735] },
+  seats: { pesquisa: [125, 275], copy: [315, 275], designer: [445, 275],
+    social: [630, 275], trafego: [830, 275], sdr: [1005, 275], closer: [1120, 275], cs: [1235, 275], alfred: [1417, 275] },
+  loungeSeats: { pesquisa: [250, 640], copy: [430, 640], designer: [610, 640],
+    social: [790, 640], trafego: [970, 640], sdr: [330, 725],
+    closer: [555, 725], cs: [800, 725], alfred: [1040, 725] },
   agentRadius: 17,
-  building: { width: 1360, depth: 800, corridorY: 475 },
-  projection: { originX: 600, originY: 400, xScale: .52, yScale: .26 },
+  building: { width: 1540, depth: 800, corridorY: 475 },
+  projection: { originX: 600, originY: 400, xScale: .46, yScale: .23 },
   movement: { speed: 520, minSegmentMs: 180, maxSegmentMs: 1350, doorOffset: 18 }
 };
 
@@ -119,8 +119,8 @@ document.addEventListener('keydown', event => {
 let isometric = true;
 function project(x, y, height = 0) {
   const p = CONFIG.projection;
-  return { x: p.originX + (x - 680) * p.xScale - (y - 400) * p.xScale,
-    y: p.originY + (x - 680) * p.yScale + (y - 400) * p.yScale - height };
+  return { x: p.originX + (x - 770) * p.xScale - (y - 400) * p.xScale,
+    y: p.originY + (x - 770) * p.yScale + (y - 400) * p.yScale - height };
 }
 function roomEntry(zone) {
   const doorY = zone.y + zone.h;
@@ -363,8 +363,8 @@ function drawLounge() {
   ctx.fillStyle = '#84BDC5'; ctx.fillRect(173, 565, 21, 9);
   ctx.fillStyle = '#FFF8E8'; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center';
   ctx.fillText('CAFÉ', 300, 583);
-  for (const x of [340, 570, 800, 1030]) {
-    shadow(); ctx.fillStyle = '#D7A778'; roundRect(x - 42, 627, 84, 44, 16); ctx.fill(); clearShadow();
+  for (const x of [510, 800, 1100]) {
+    shadow(); ctx.fillStyle = '#D7A778'; roundRect(x - 42, 570, 84, 42, 16); ctx.fill(); clearShadow();
   }
   for (const [x, y] of Object.values(CONFIG.loungeSeats)) {
     ctx.fillStyle = '#5E947F'; roundRect(x - 16, y - 13, 32, 26, 10); ctx.fill();
@@ -419,27 +419,27 @@ function diamond(x, y, w, h, fill, stroke) {
   polygon([project(x, y), project(x + w, y), project(x + w, y + h), project(x, y + h)], fill, stroke);
 }
 function drawRoom(id, zone) {
-  const h = 64;
+  const h = 34;
   const backA = project(zone.x, zone.y), leftC = project(zone.x, zone.y + zone.h);
   const entry = roomEntry(zone);
-  // Paredes laterais sólidas na base e vidro acima deixam as salas alinhadas e abertas à vista.
-  polygon([backA, leftC, { x: leftC.x, y: leftC.y - 15 }, { x: backA.x, y: backA.y - 15 }], '#7D9A9D', '#D7E9E8');
-  polygon([{ x: backA.x, y: backA.y - 15 }, { x: leftC.x, y: leftC.y - 15 },
-    { x: leftC.x, y: leftC.y - h }, { x: backA.x, y: backA.y - h }], 'rgba(208,235,236,.22)', '#E4F1F0');
-  const doorHalf = Math.min(30, zone.w * .18);
+  // Painéis opacos separam os setores; a altura baixa mantém os postos visíveis.
+  polygon([backA, leftC, { x: leftC.x, y: leftC.y - h }, { x: backA.x, y: backA.y - h }], '#AAB8B7', '#EDF1EA');
+  const baseA = project(zone.x, zone.y, 12), baseC = project(zone.x, zone.y + zone.h, 12);
+  polygon([backA, leftC, baseC, baseA], '#718A8B', '#C8D9D5');
+  ctx.strokeStyle = '#E6EEEA'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(backA.x, backA.y - h); ctx.lineTo(leftC.x, leftC.y - h); ctx.stroke();
+  const doorHalf = 34;
   for (const [start, end] of [[zone.x, entry.x - doorHalf], [entry.x + doorHalf, zone.x + zone.w]]) {
     const a = project(start, entry.doorY), b = project(end, entry.doorY);
-    polygon([a, b, { x: b.x, y: b.y - 14 }, { x: a.x, y: a.y - 14 }], '#76989B', '#D5E7E6');
-    polygon([{ x: a.x, y: a.y - 14 }, { x: b.x, y: b.y - 14 },
-      { x: b.x, y: b.y - h }, { x: a.x, y: a.y - h }], 'rgba(207,234,236,.24)', '#DCEDEC');
-    ctx.strokeStyle = '#F4FCFA'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(a.x, a.y - h); ctx.lineTo(a.x, a.y - 14);
-    ctx.moveTo(b.x, b.y - h); ctx.lineTo(b.x, b.y - 14); ctx.stroke();
+    polygon([a, b, { x: b.x, y: b.y - 18 }, { x: a.x, y: a.y - 18 }], '#829A98', '#DCE8E2');
+    ctx.strokeStyle = '#F4F4E9'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - 18); ctx.lineTo(b.x, b.y - 18); ctx.stroke();
   }
   const leftDoor = project(entry.x - doorHalf, entry.doorY);
   const rightDoor = project(entry.x + doorHalf, entry.doorY);
-  ctx.strokeStyle = '#E8F3F1'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(leftDoor.x, leftDoor.y - h); ctx.lineTo(rightDoor.x, rightDoor.y - h); ctx.stroke();
+  ctx.strokeStyle = '#EDF2EB'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(leftDoor.x, leftDoor.y - 25); ctx.lineTo(leftDoor.x, leftDoor.y);
+  ctx.moveTo(rightDoor.x, rightDoor.y - 25); ctx.lineTo(rightDoor.x, rightDoor.y); ctx.stroke();
   const threshold = project(entry.x, entry.doorY);
   ctx.fillStyle = '#F2EBD0';
   ctx.beginPath(); ctx.ellipse(threshold.x, threshold.y, 18, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -556,15 +556,15 @@ function drawCoffeeArea() {
   ctx.fillStyle = '#D9A481'; ctx.beginPath(); ctx.arc(barista.x, barista.y - 32, 8, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#2A3440'; roundRect(barista.x - 9, barista.y - 42, 18, 7, 3); ctx.fill();
   // Mesas distribuídas em uma área comum contínua, em frente às salas.
-  drawCafeTable(552, 598, 170, 68);
-  for (const [x, y] of [[390, 610], [835, 610], [1010, 610], [440, 716], [900, 716]]) {
+  drawCafeTable(665, 555, 190, 68);
+  for (const [x, y] of [[450, 588], [1050, 588], [425, 684], [720, 684], [1080, 684]]) {
     drawCafeTable(x - 28, y - 16, 56, 38);
   }
-  const mug = project(638, 635, 18);
+  const mug = project(760, 590, 18);
   ctx.fillStyle = '#FAF5E9'; roundRect(mug.x - 8, mug.y - 10, 16, 13, 4); ctx.fill();
   ctx.strokeStyle = '#FAF5E9'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(mug.x + 9, mug.y - 4, 4, -1.3, 1.3); ctx.stroke();
-  for (const [x, y] of [[390, 610], [835, 610], [1010, 610], [440, 716], [900, 716]]) {
+  for (const [x, y] of [[450, 588], [1050, 588], [425, 684], [720, 684], [1080, 684]]) {
     const cup = project(x, y, 17);
     ctx.fillStyle = '#FCF6E9'; roundRect(cup.x - 3, cup.y - 5, 6, 6, 2); ctx.fill();
     ctx.strokeStyle = '#FCF6E9'; ctx.lineWidth = 1;
@@ -589,7 +589,7 @@ function drawIsoWalls() {
   ctx.beginPath(); ctx.moveTo(trimB.x, trimB.y - 4); ctx.lineTo(trimA.x, trimA.y - 4);
   ctx.lineTo(trimC.x, trimC.y - 4); ctx.stroke();
   for (let i = 0; i < 6; i++) {
-    const p = project(120 + i * 210, 0);
+    const p = project(120 + i * 245, 0);
     polygon([{ x: p.x, y: p.y - 132 }, { x: p.x + 65, y: p.y - 107 },
       { x: p.x + 65, y: p.y - 42 }, { x: p.x, y: p.y - 67 }], '#D5E4E8', '#EDF6F5');
     polygon([{ x: p.x + 5, y: p.y - 125 }, { x: p.x + 60, y: p.y - 104 },
@@ -602,7 +602,7 @@ function drawIsoWalls() {
     polygon([{ x: p.x + 6, y: p.y - 71 }, { x: p.x + 60, y: p.y - 50 },
       { x: p.x + 60, y: p.y - 45 }, { x: p.x + 6, y: p.y - 66 }], '#F5F6EB99');
   }
-  for (const x of [230, 640, 1080]) {
+  for (const x of [280, 760, 1240]) {
     const p = project(x, 0);
     polygon([{ x: p.x - 16, y: p.y - 77 }, { x: p.x + 17, y: p.y - 65 },
       { x: p.x + 17, y: p.y - 32 }, { x: p.x - 16, y: p.y - 44 }], '#D7BC9B', '#F0DEC4');
@@ -717,9 +717,11 @@ function drawIsoOffice(now) {
   drawIsoWalls();
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
     diamond(zone.x, zone.y, zone.w, zone.h, ISO_THEME.zones[id].floor, '#FFF4DAA0');
-    if (id !== 'lounge') drawRoom(id, zone);
   }
   drawCoffeeArea();
+  for (const [id, zone] of Object.entries(CONFIG.zones)) {
+    if (id !== 'lounge') drawRoom(id, zone);
+  }
   Object.entries(CONFIG.desks).sort((a, b) => (a[1].x + a[1].y) - (b[1].x + b[1].y))
     .forEach(([id, desk]) => drawIsoDesk(id, desk, now));
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
@@ -821,6 +823,15 @@ function renderTask(task) {
       block.textContent = `${TEAM_MEMBERS[id]?.name || id}: ${value}`; output.append(block);
     }
     item.append(output);
+  }
+  if (task.review) {
+    const review = document.createElement('details');
+    const summary = document.createElement('summary'); summary.textContent = 'Revisão de Alfred'; review.append(summary);
+    const body = document.createElement('p'); body.textContent = task.review; review.append(body);
+    item.append(review);
+  }
+  if (task.error) {
+    const error = document.createElement('p'); error.textContent = task.error; item.append(error);
   }
   while (ui.board.children.length > 30) ui.board.lastElementChild.remove();
 }
@@ -935,9 +946,12 @@ function renderTeam(team) {
     const personality = document.createElement('small'); personality.textContent = `Perfil: ${member.personality}`;
     const skills = document.createElement('small'); skills.textContent = `Skills ativas: ${member.skillNames.join(', ')}`;
     const tools = document.createElement('small'); tools.textContent = `Ferramentas: ${member.tools.join(', ')}`;
-    const planned = document.createElement('small');
-    planned.textContent = `Integrações futuras: ${member.plannedIntegrations.join(', ')}`;
-    details.append(name, experience, personality, skills, tools, planned);
+    details.append(name, experience, personality, skills, tools);
+    if (member.plannedIntegrations.length) {
+      const planned = document.createElement('small');
+      planned.textContent = `Integrações futuras: ${member.plannedIntegrations.join(', ')}`;
+      details.append(planned);
+    }
     item.append(dot, details); ui.roster.append(item);
   }
 }
