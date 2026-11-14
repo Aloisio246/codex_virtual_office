@@ -6,6 +6,7 @@ const os = require('node:os');
 const { spawn, spawnSync } = require('node:child_process');
 const { Server } = require('socket.io');
 const { TEAM_MEMBERS } = require('./agents');
+const PROFILE_SCHEMA = require('./office-profile-schema.json');
 const SKILL_TEXT = Object.fromEntries(Object.entries(TEAM_MEMBERS).map(([id, member]) => [id,
   fs.readFileSync(path.join(__dirname, 'agent-skills', member.skillFile, 'SKILL.md'), 'utf8')]));
 
@@ -30,6 +31,8 @@ const ROUTES = {
 const WORKERS = Object.keys(ROUTES);
 const tasks = [];
 const chatHistory = [];
+let officeProfiles = {};
+let officeBrief = '';
 const STATE_FILE = path.join(process.env.AGENCY_DATA_DIR || __dirname, 'agency-state.json');
 try {
   const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
@@ -38,11 +41,13 @@ try {
     tasks.push(task);
   }
   chatHistory.push(...(saved.chatHistory || []).slice(-100));
+  officeProfiles = saved.officeProfiles || {};
+  officeBrief = saved.officeBrief || '';
 } catch (error) { if (error.code !== 'ENOENT') console.error('Estado salvo inválido:', error.message); }
 function persist() {
   const next = `${STATE_FILE}.tmp`;
   try {
-    fs.writeFileSync(next, JSON.stringify({ tasks, chatHistory }), 'utf8');
+    fs.writeFileSync(next, JSON.stringify({ tasks, chatHistory, officeProfiles, officeBrief }), 'utf8');
     fs.renameSync(next, STATE_FILE);
   } catch (error) { console.error('Falha ao salvar estado:', error.message); }
 }
@@ -203,8 +208,14 @@ function executeAgent(id, request, context, trackProcess, options = {}) {
       return;
     }
     const workDir = options.workDir || __dirname;
-    const child = spawn('codex', ['exec', '--json', '--sandbox', options.writable ? 'workspace-write' : 'read-only',
-      '--skip-git-repo-check', '--ephemeral', '-C', workDir, '-'],
+    const args = ['exec', '--json', '--sandbox', options.writable ? 'workspace-write' : 'read-only',
+      '--skip-git-repo-check', '--ephemeral', '-C', workDir];
+    const lastMessagePath = options.profileInterview
+      ? path.join(os.tmpdir(), `codex-office-profile-${id}-${process.pid}-${Date.now()}.json`) : null;
+    if (options.profileInterview) args.push('--output-schema', path.join(__dirname, 'office-profile-schema.json'),
+      '--output-last-message', lastMessagePath);
+    args.push('-');
+    const child = spawn('codex', args,
       { cwd: workDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     trackProcess(child);
     const instruction = [
@@ -215,10 +226,14 @@ function executeAgent(id, request, context, trackProcess, options = {}) {
         ['Codex CLI', 'Leitura local', ...(id === 'alfred' ? ['Quadro e entregas enviados no contexto', 'Dados públicos do site enviados no pedido'] : [])]).join(', ')}.`,
       `Entregável esperado: ${profile.deliverable}.`,
       `Skill da função (orientações operacionais):\n${SKILL_TEXT[id]}`,
-      options.writable
+      options.profileInterview
+        ? 'Alfred está entrevistando você para personalizar visualmente sua estação de trabalho no escritório virtual. Responda apenas com um objeto JSON conforme o esquema solicitado. Escolha uma cor de mesa, um objeto de trabalho, uma planta e um animal de estimação virtual coerentes com sua função e personalidade. petName é o nome criativo do animal; personalTouch explica em uma frase a escolha. São propostas de ficção visual, não fatos pessoais. Não use ferramentas externas nem edite arquivos.'
+        : options.writable
         ? 'Implemente a alteração visual pedida nos arquivos app.js e/ou index.html deste diretório. Preserve chat, Socket.io, agentes e controles existentes. Não edite outros arquivos. Rode node --check app.js. Responda com um resumo curto do que realmente modificou.'
         : options.review
           ? 'Você está revisando as entregas já feitas pela equipe. Leia o contexto abaixo, verifique se responde ao pedido, se fontes e hipóteses estão claras, aponte lacunas reais e dê um próximo passo concreto. As páginas citadas no pedido foram consultadas por HTTP pelo servidor nesta tarefa; avalie os trechos e seus limites, sem afirmar que o site não foi consultado apenas porque o Codex CLI não tem navegação própria. Não alegue ter acessado contas externas nem executado trabalho dos especialistas.'
+        : options.visualReview
+          ? 'Como líder, revise os nove perfis fictícios e as propostas de Pesquisa, Copy e Designer. Verifique coerência com as funções, legibilidade da cena, espaço e decoração dos postos. Dê um parecer curto com ajustes práticos. Não alegue pesquisa externa ou alterações em arquivos.'
         : options.managerBrief
           ? 'Prepare um briefing curto com objetivo, responsáveis e critério de aceite. O servidor vai delegar a tarefa após sua resposta; não diga que já delegou nem que a delegação falhou. Não apresente uma pesquisa ou entrega final nesta etapa.'
         : options.officeManager
@@ -234,27 +249,51 @@ function executeAgent(id, request, context, trackProcess, options = {}) {
     child.stdin.end(instruction);
     let buffer = '';
     let answer = '';
+    let stderr = '';
     let finished = false;
     const timeout = setTimeout(() => child.kill(), options.writable ? 240000 : 120000);
+    const consumeLine = line => {
+      try {
+        const event = JSON.parse(line);
+        if (event.type === 'item.completed' && event.item?.type === 'agent_message') answer = event.item.text || answer;
+      } catch { /* Linha incompleta ou não JSON. */ }
+    };
     child.stdout.on('data', chunk => {
       buffer += chunk.toString();
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() || '';
-      for (const line of lines) {
-        try {
-          const event = JSON.parse(line);
-          if (event.type === 'item.completed' && event.item?.type === 'agent_message') answer = event.item.text || answer;
-        } catch { /* Linha incompleta ou não JSON. */ }
-      }
+      lines.forEach(consumeLine);
     });
+    child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-500); });
     const finish = (ok, error) => {
       if (finished) return;
       finished = true; clearTimeout(timeout);
+      if (lastMessagePath) {
+        try { if (!answer) answer = fs.readFileSync(lastMessagePath, 'utf8'); } catch { /* Sem arquivo final. */ }
+        try { fs.rmSync(lastMessagePath, { force: true }); } catch { /* Limpeza opcional. */ }
+      }
       resolve({ ok, text: answer.trim(), error });
     };
     child.on('error', () => finish(false, 'Não foi possível iniciar o Codex CLI.'));
-    child.on('close', code => finish(code === 0 && Boolean(answer.trim()), code === 0 ? 'Sem resposta do Codex.' : 'Codex encerrou com erro.'));
+    child.on('close', code => {
+      if (buffer) consumeLine(buffer);
+      if (lastMessagePath && !answer) {
+        try { answer = fs.readFileSync(lastMessagePath, 'utf8'); } catch { /* Sem arquivo final. */ }
+      }
+      finish(code === 0 && Boolean(answer.trim()), code === 0 ? 'Sem resposta do Codex.' :
+        `Codex encerrou com erro${stderr ? `: ${stderr.slice(-240)}` : '.'}`);
+    });
   });
+}
+function parseOfficeProfile(text) {
+  let value;
+  try { value = JSON.parse(text); } catch { return null; }
+  for (const key of PROFILE_SCHEMA.required) {
+    if (typeof value[key] !== 'string' || !value[key].trim()) return null;
+    if (PROFILE_SCHEMA.properties[key].enum && !PROFILE_SCHEMA.properties[key].enum.includes(value[key])) return null;
+  }
+  if (value.petName.length > 28 || value.personalTouch.length > 180) return null;
+  return Object.fromEntries(PROFILE_SCHEMA.required.map(key => [key, value[key].trim()]));
 }
 async function executeOfficeUpdate(request, context, trackProcess) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-office-'));
@@ -365,6 +404,87 @@ async function runRealTeam(socket, task, prompt, selected, isCurrent, trackProce
   } else chat('alfred', 'A revisão da equipe terminou. Consulte as entregas antes de usar ou publicar.', 5000);
 }
 
+function isPersonalizationRequest(query) {
+  return /\bpersonaliz\w*\b/.test(query) || /animal de estimacao|decorar as mesas|identidade visual da equipe|converse com cada integrante/.test(query);
+}
+async function runPersonalization(task, request, isCurrent, trackProcess) {
+  const draft = { ...(task.profilesDraft || {}) };
+  const fail = (id, reason) => {
+    task.status = 'failed'; task.failedAgent = id; task.error = reason;
+    task.finishedAt = new Date().toISOString(); updateTask(task);
+    move('alfred', 'lounge');
+    chat('alfred', `A personalização parou em ${TEAM_MEMBERS[id]?.name || id}: ${reason}. Os visuais anteriores foram preservados.`);
+  };
+  for (const id of Object.keys(TEAM_MEMBERS)) {
+    if (!isCurrent()) return;
+    if (draft[id]) continue;
+    task.phase = `Entrevista: ${TEAM_MEMBERS[id].name}`; updateTask(task);
+    if (id === 'alfred') move(id, 'work');
+    else move('alfred', `visit:${id}`);
+    chat('alfred', id === 'alfred'
+      ? 'Vou definir minha própria estação com os mesmos critérios da equipe.'
+      : `${TEAM_MEMBERS[id].name}, que mesa, objeto, planta e companheiro virtual combinam com seu jeito de trabalhar?`, 3600);
+    let result, chosen;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      result = await executeAgent(id,
+        'Defina seu perfil visual criativo para a estação de trabalho e o café da equipe.',
+        `Pedido do usuário: ${request}. Use sua função e personalidade registradas como base.`,
+        trackProcess, { profileInterview: true });
+      if (!isCurrent()) return;
+      chosen = result.ok ? parseOfficeProfile(result.text) : null;
+      if (chosen) break;
+      if (attempt === 0) chat('alfred', `A resposta de ${TEAM_MEMBERS[id].name} não veio completa. Vou repetir a entrevista.`, 2500);
+    }
+    if (!chosen) { fail(id, result.error || 'A entrevista não retornou um perfil visual válido.'); return; }
+    draft[id] = chosen;
+    task.profilesDraft = draft; task.completedAgents = [...(task.completedAgents || []), id]; updateTask(task);
+    chat(id, `${chosen.personalTouch} Minha mesa terá ${chosen.deskObject} e meu companheiro virtual será ${chosen.petName}.`, 4500);
+    move(id, 'lounge');
+    if (id !== 'alfred') move('alfred', 'lounge');
+  }
+  const profilesText = JSON.stringify(draft);
+  const phases = [
+    ['pesquisa', 'Sintetize os nove perfis em uma pesquisa interna para o desenho do escritório. Identifique padrões, contrastes, necessidades de espaço e riscos de legibilidade. Deixe claro que os perfis são conceitos criativos dos agentes virtuais, sem alegar pesquisa externa.'],
+    ['copy', 'Crie uma proposta curta de linguagem visual e microtextos para identificar os postos e os animais no escritório. Use as preferências coletadas e evite poluir a cena com rótulos longos.'],
+    ['designer', 'Defina uma direção de arte concisa para aplicar as cores, objetos, plantas e animais dos nove perfis à planta isométrica existente. Priorize visibilidade das mesas, contraste e circulação. Não diga que editou arquivos; a configuração visual será aplicada pelo Canvas.']
+  ];
+  task.deliverables = {};
+  for (const [id, instruction] of phases) {
+    if (!isCurrent()) return;
+    task.phase = `Pesquisa e criação: ${TEAM_MEMBERS[id].name}`; updateTask(task);
+    move('alfred', `visit:${id}`);
+    chat('alfred', `${TEAM_MEMBERS[id].name}, organize sua parte da identidade visual da equipe.`, 2800);
+    move(id, 'work');
+    io.emit('agent:state', { agent_id: id, status: 'working' });
+    const result = await executeAgent(id, instruction, profilesText, trackProcess);
+    if (!isCurrent()) return;
+    io.emit('agent:state', { agent_id: id, status: result.ok ? 'done' : 'error' });
+    move(id, 'lounge'); move('alfred', 'lounge');
+    if (!result.ok) { fail(id, result.error); return; }
+    task.deliverables[id] = result.text.slice(0, 5000); updateTask(task);
+    chat(id, result.text.slice(0, 3500), 5500);
+  }
+  task.phase = 'Revisão de Alfred'; updateTask(task);
+  move('alfred', 'work');
+  io.emit('agent:state', { agent_id: 'alfred', status: 'working' });
+  const review = await executeAgent('alfred',
+    'Revise a coerência da identidade visual criada para os nove agentes virtuais. Dê um parecer curto e pontos de atenção.',
+    `Perfis: ${profilesText}\nPesquisa: ${task.deliverables.pesquisa}\nCopy: ${task.deliverables.copy}\nDesign: ${task.deliverables.designer}`.slice(0, 20000),
+    trackProcess, { review: true, visualReview: true });
+  if (!isCurrent()) return;
+  io.emit('agent:state', { agent_id: 'alfred', status: review.ok ? 'done' : 'error' });
+  move('alfred', 'lounge');
+  if (!review.ok) { fail('alfred', review.error); return; }
+  officeProfiles = draft;
+  officeBrief = [task.deliverables.pesquisa, task.deliverables.copy, task.deliverables.designer].join('\n\n');
+  io.emit('office:profiles', officeProfiles);
+  task.review = review.text.slice(0, 5000);
+  task.status = 'done'; task.phase = 'Concluída'; task.finishedAt = new Date().toISOString();
+  delete task.profilesDraft;
+  updateTask(task);
+  chat('alfred', 'As entrevistas e a criação terminaram. As mesas, plantas, objetos e companheiros virtuais já aparecem no escritório. Minha revisão está no quadro de tarefas.', 6000);
+}
+
 app.get('/api/team', (_req, res) => res.json(TEAM_MEMBERS));
 
 app.post('/api/event', (req, res) => {
@@ -405,6 +525,7 @@ io.on('connection', socket => {
   socket.emit('team:snapshot', TEAM_MEMBERS);
   socket.emit('task:snapshot', tasks);
   socket.emit('chat:snapshot', chatHistory);
+  socket.emit('office:profiles', officeProfiles);
   socket.on('task:cancel', id => {
     const task = tasks.find(item => item.id === id && item.status === 'working');
     if (!task) return;
@@ -449,6 +570,32 @@ io.on('connection', socket => {
     }
     const effectivePrompt = site ? `${request}\n${site}` : request;
     const query = normalize(request);
+    if (isPersonalizationRequest(query)) {
+      if (!codexEnabled) {
+        chat('alfred', 'Preciso do Codex CLI conectado para entrevistar a equipe e criar perfis reais. Abra o Menu e conecte o Codex.');
+        return;
+      }
+      const latestPersonalization = tasks.find(item => item.kind === 'personalization');
+      const resumeDraft = latestPersonalization?.status === 'failed' ? latestPersonalization.profilesDraft : null;
+      const task = { id: current, title: prompt, agents: Object.keys(TEAM_MEMBERS), kind: 'personalization',
+        status: 'working', simulated: false, phase: 'Iniciando entrevistas', createdAt: new Date().toISOString() };
+      if (resumeDraft) {
+        task.profilesDraft = { ...resumeDraft };
+        task.completedAgents = Object.keys(resumeDraft);
+        chat('alfred', `Vou retomar as entrevistas: ${task.completedAgents.length} perfis já estão salvos.`);
+      }
+      tasks.unshift(task); if (tasks.length > 30) tasks.length = 30; updateTask(task);
+      socket.emit('codex:state', { connected: true, busy: true });
+      runPersonalization(task, prompt, () => current === taskSequence && codexEnabled,
+        child => { codexProcess = child; }).catch(error => {
+          if (current !== taskSequence) return;
+          task.status = 'failed'; task.error = `Falha na personalização: ${error.message}`;
+          updateTask(task); chat('alfred', task.error);
+        }).finally(() => {
+          if (current === taskSequence) socket.emit('codex:state', { connected: true, busy: false });
+        });
+      return;
+    }
     const office = isOfficeRequest(query);
     const full = /\bcomplet[oa]\b/.test(query) || query.includes('lancamento');
     const selected = selectAgents(query, office);
@@ -510,4 +657,4 @@ io.on('connection', socket => {
 if (require.main === module) {
   server.listen(PORT, process.env.HOST || '127.0.0.1', () => console.log(`Codex Virtual Agency: http://localhost:${PORT}`));
 }
-module.exports = { normalize, selectAgents, websiteContext };
+module.exports = { normalize, selectAgents, websiteContext, isPersonalizationRequest, parseOfficeProfile };

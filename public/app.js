@@ -27,6 +27,14 @@ const ISO_THEME = {
     comercial: { floor: 'rgba(128, 135, 206, .27)', accent: '#B1B8EF' }
   }
 };
+const DESK_TONES = {
+  wood: ['#E8C49B', '#B68B68', '#A77C5C'], sage: ['#C5D5B8', '#8FA88D', '#77947D'],
+  sky: ['#C2D8E5', '#8CA9BE', '#7694AA'], rose: ['#E6C6C9', '#BA939B', '#A67C86'],
+  lavender: ['#D8CEEA', '#A49AC4', '#8E84AE'], amber: ['#E8CE9B', '#B99C69', '#A58655'],
+  stone: ['#D6D7D4', '#A1A7A5', '#899391'], mint: ['#C6DFD6', '#8FB5A8', '#72A293'],
+  navy: ['#AFC2CF', '#6C899E', '#54758A']
+};
+let officeProfiles = {};
 
 const CONFIG = {
   colors: { bg: '#F8FAFC', ink: '#243244', muted: '#687789', edge: '#CBD5E1',
@@ -79,7 +87,8 @@ const ui = {
   voice: document.getElementById('voiceButton'), mute: document.getElementById('muteButton'),
   voiceStatus: document.getElementById('voiceStatus'), panel: document.querySelector('.office-panel'),
   edit: document.getElementById('editLayout'), reset: document.getElementById('resetLayout'),
-  layoutStatus: document.getElementById('layoutStatus')
+  layoutStatus: document.getElementById('layoutStatus'),
+  personalize: document.getElementById('personalizeTeam')
 };
 const viewToggle = document.getElementById('viewToggle');
 const codexConnect = document.getElementById('codexConnect');
@@ -310,6 +319,7 @@ class Agent {
       ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(x - 5, y - 2, 2, 0, Math.PI * 2);
       ctx.arc(x + 5, y - 2, 2, 0, Math.PI * 2); ctx.fill();
     }
+    if (officeProfiles[this.id]) drawPet(this, x + 20, y + 1, now);
     ctx.font = isometric ? '700 10px system-ui' : '600 13px system-ui';
     ctx.textAlign = 'center';
     const labelY = y - (isometric ? 58 : 30);
@@ -348,6 +358,32 @@ class Agent {
 }
 const agents = Object.fromEntries(Object.entries(TEAM_MEMBERS).map(([id, member]) => [id, new Agent(id, member)]));
 
+function drawPet(agent, x, y, now) {
+  const species = officeProfiles[agent.id]?.petSpecies;
+  if (!species) return;
+  const bounce = agent.startedAt ? Math.abs(Math.sin(now / 120)) * 2 : Math.sin(now / 700 + x) * .5;
+  ctx.fillStyle = '#07162255';
+  ctx.beginPath(); ctx.ellipse(x, y + 1, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = species === 'bird' ? '#E5B75A' : species === 'rabbit' ? '#D8D6D0' :
+    species === 'cat' ? '#778A94' : '#B7906B';
+  ctx.beginPath(); ctx.ellipse(x, y - 6 - bounce, 7, species === 'bird' ? 5 : 6, 0, 0, Math.PI * 2); ctx.fill();
+  if (species === 'rabbit') {
+    ctx.fillRect(x - 5, y - 21 - bounce, 3, 12); ctx.fillRect(x + 2, y - 21 - bounce, 3, 12);
+  } else if (species === 'cat') {
+    ctx.beginPath(); ctx.moveTo(x - 7, y - 9 - bounce); ctx.lineTo(x - 6, y - 17 - bounce);
+    ctx.lineTo(x - 1, y - 12 - bounce); ctx.moveTo(x + 2, y - 12 - bounce);
+    ctx.lineTo(x + 6, y - 17 - bounce); ctx.lineTo(x + 7, y - 9 - bounce); ctx.fill();
+  } else if (species === 'dog') {
+    ctx.beginPath(); ctx.ellipse(x - 8, y - 8 - bounce, 3, 6, -.3, 0, Math.PI * 2);
+    ctx.ellipse(x + 8, y - 8 - bounce, 3, 6, .3, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = '#F4CF69'; ctx.beginPath(); ctx.moveTo(x + 6, y - 8 - bounce);
+    ctx.lineTo(x + 12, y - 6 - bounce); ctx.lineTo(x + 6, y - 4 - bounce); ctx.fill();
+  }
+  ctx.fillStyle = '#1E293B';
+  for (const dx of [-2, 3]) { ctx.beginPath(); ctx.arc(x + dx, y - 8 - bounce, 1, 0, Math.PI * 2); ctx.fill(); }
+}
+
 function drawZone(id, zone) {
   shadow(); ctx.fillStyle = CONFIG.colors[id]; roundRect(zone.x, zone.y, zone.w, zone.h, 18); ctx.fill(); clearShadow();
   ctx.strokeStyle = CONFIG.colors.edge; ctx.lineWidth = 1; ctx.stroke();
@@ -373,7 +409,8 @@ function drawLounge() {
   ctx.fillStyle = '#FFF8E8'; ctx.font = '24px system-ui'; ctx.fillText('☕', 600, 650);
 }
 function drawDesk(id, desk, now) {
-  shadow(); ctx.fillStyle = '#D9D3C8'; roundRect(desk.x, desk.y, desk.w, desk.h, 8); ctx.fill(); clearShadow();
+  shadow(); ctx.fillStyle = (DESK_TONES[officeProfiles[id]?.deskTone] || DESK_TONES.wood)[0];
+  roundRect(desk.x, desk.y, desk.w, desk.h, 8); ctx.fill(); clearShadow();
   ctx.strokeStyle = '#BEB7AA'; ctx.stroke();
   const width = Math.min(70, desk.w - 16);
   ctx.fillStyle = '#263444'; roundRect(desk.x + (desk.w - width) / 2, desk.y + 7, width, 32, 4); ctx.fill();
@@ -610,7 +647,56 @@ function drawIsoWalls() {
       { x: p.x + 13, y: p.y - 37 }, { x: p.x - 12, y: p.y - 47 }], '#66868C');
   }
 }
+function drawDeskObject(id, desk) {
+  const profile = officeProfiles[id];
+  if (!profile) return;
+  const p = project(desk.x + 13, desk.y + 47, 31);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.fillStyle = '#315064'; ctx.strokeStyle = '#F8FAF5'; ctx.lineWidth = 1.3;
+  switch (profile.deskObject) {
+    case 'mug':
+      roundRect(-5, -6, 9, 8, 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(5, -2, 3, -1.3, 1.3); ctx.stroke(); break;
+    case 'lamp':
+      ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(6, -8); ctx.lineTo(3, -12); ctx.lineTo(-3, -12); ctx.fill();
+      ctx.fillRect(-6, 2, 12, 2); break;
+    case 'camera':
+      roundRect(-7, -7, 14, 10, 2); ctx.fill(); ctx.fillStyle = '#9AC6D1';
+      ctx.beginPath(); ctx.arc(0, -2, 3, 0, Math.PI * 2); ctx.fill(); break;
+    case 'headphones':
+      ctx.beginPath(); ctx.arc(0, -3, 6, Math.PI, Math.PI * 2); ctx.stroke();
+      ctx.fillRect(-7, -3, 3, 6); ctx.fillRect(4, -3, 3, 6); break;
+    case 'trophy':
+      ctx.beginPath(); ctx.moveTo(-5, -9); ctx.lineTo(5, -9); ctx.lineTo(3, -2);
+      ctx.lineTo(-3, -2); ctx.fill(); ctx.fillRect(-1, -2, 2, 5); ctx.fillRect(-5, 3, 10, 2); break;
+    case 'books':
+      ctx.fillStyle = '#557F94'; ctx.fillRect(-7, -2, 14, 3);
+      ctx.fillStyle = '#C66E74'; ctx.fillRect(-5, -6, 12, 3);
+      ctx.fillStyle = '#E8C574'; ctx.fillRect(-6, -10, 11, 3); break;
+    default:
+      roundRect(-7, -8, 14, 11, 2); ctx.fill(); ctx.fillStyle = '#9AC6D1';
+      ctx.fillRect(-5, -6, 10, 6); break;
+  }
+  ctx.restore();
+  if (profile.plant === 'none') return;
+  const plant = project(desk.x + desk.w - 10, desk.y + 13, 31);
+  ctx.fillStyle = '#A77C62';
+  polygon([{ x: plant.x - 4, y: plant.y - 2 }, { x: plant.x + 4, y: plant.y - 2 },
+    { x: plant.x + 3, y: plant.y + 4 }, { x: plant.x - 3, y: plant.y + 4 }], '#A77C62');
+  ctx.fillStyle = profile.plant === 'cactus' ? '#367E68' : '#58A17B';
+  if (profile.plant === 'cactus') {
+    roundRect(plant.x - 2, plant.y - 13, 4, 12, 2); ctx.fill();
+    ctx.fillRect(plant.x - 5, plant.y - 8, 3, 3);
+  } else {
+    for (const dx of [-4, 0, 4]) {
+      ctx.beginPath(); ctx.ellipse(plant.x + dx, plant.y - 9 - Math.abs(dx), 3, 7, dx / 12, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
 function drawIsoDesk(id, desk, now) {
+  const tone = DESK_TONES[officeProfiles[id]?.deskTone] || DESK_TONES.wood;
   const centerX = desk.x + desk.w / 2;
   const floor = project(centerX, desk.y + desk.h / 2);
   ctx.fillStyle = '#10223835';
@@ -629,9 +715,9 @@ function drawIsoDesk(id, desk, now) {
     ctx.beginPath(); ctx.moveTo(pedestal.x - 8, pedestal.y + offset);
     ctx.lineTo(pedestal.x + 7, pedestal.y + offset + 5); ctx.stroke();
   }
-  polygon([top[1], top[2], base[2], base[1]], ISO_THEME.deskSide, '#8C6C53');
-  polygon([top[2], top[3], base[3], base[2]], ISO_THEME.deskFront, '#88684E');
-  shadow(); polygon(top, ISO_THEME.deskTop, '#F7DEBB'); clearShadow();
+  polygon([top[1], top[2], base[2], base[1]], tone[1], '#8C6C53');
+  polygon([top[2], top[3], base[3], base[2]], tone[2], '#88684E');
+  shadow(); polygon(top, tone[0], '#F7DEBB'); clearShadow();
   ctx.strokeStyle = '#FFF2DE75'; ctx.lineWidth = 1;
   const grainA = project(desk.x + 10, desk.y + 44, 28);
   const grainB = project(desk.x + desk.w - 10, desk.y + 44, 28);
@@ -684,6 +770,7 @@ function drawIsoDesk(id, desk, now) {
   const led = project(desk.x + 9, desk.y + 12, 29);
   ctx.fillStyle = TEAM_MEMBERS[id].color;
   ctx.beginPath(); ctx.arc(led.x, led.y, 3, 0, Math.PI * 2); ctx.fill();
+  drawDeskObject(id, desk);
   const [chairX, chairY] = CONFIG.seats[id];
   drawIsoChair(chairX, chairY);
 }
@@ -807,7 +894,7 @@ function renderTask(task) {
   item.dataset.status = task.status;
   const title = document.createElement('strong'); title.textContent = task.title;
   const detail = document.createElement('small');
-  detail.textContent = `${{ working: 'Em andamento', done: 'Concluída', cancelled: 'Cancelada', interrupted: 'Interrompida', failed: 'Falhou' }[task.status] || task.status} · ${task.agents.map(id => TEAM_MEMBERS[id]?.name || id).join(', ')} · ${task.simulated ? 'simulado' : 'Codex CLI'}`;
+  detail.textContent = `${{ working: 'Em andamento', done: 'Concluída', cancelled: 'Cancelada', interrupted: 'Interrompida', failed: 'Falhou' }[task.status] || task.status} · ${task.status === 'working' && task.phase ? task.phase : task.agents.map(id => TEAM_MEMBERS[id]?.name || id).join(', ')} · ${task.simulated ? 'simulado' : 'Codex CLI'}`;
   item.replaceChildren(title, detail);
   if (task.status === 'working') {
     const cancel = document.createElement('button');
@@ -842,6 +929,10 @@ function submitChat(value) {
   socket.emit('chat:submit', text); ui.input.value = '';
 }
 ui.form.addEventListener('submit', event => { event.preventDefault(); submitChat(ui.input.value); });
+ui.personalize.addEventListener('click', () => {
+  setMenuOpen(false);
+  submitChat('Alfred, converse com cada integrante e personalize as mesas, plantas e animais de estimação virtuais da equipe; peça a Pesquisa, Copy e Designer para criar a identidade visual do escritório.');
+});
 let muted = false;
 ui.mute.addEventListener('click', () => {
   muted = !muted; ui.mute.setAttribute('aria-pressed', String(muted));
@@ -954,8 +1045,32 @@ function renderTeam(team) {
     }
     item.append(dot, details); ui.roster.append(item);
   }
+  renderProfileRoster();
+}
+function renderProfileRoster() {
+  for (const item of ui.roster.children) {
+    item.querySelector('.team-member__profile')?.remove();
+    const profile = officeProfiles[item.dataset.agentId];
+    if (!profile) continue;
+    const line = document.createElement('small'); line.className = 'team-member__profile';
+    const labels = {
+      wood: 'madeira', sage: 'sálvia', sky: 'azul', rose: 'rosa', lavender: 'lavanda',
+      amber: 'âmbar', stone: 'pedra', mint: 'menta', navy: 'azul-marinho',
+      books: 'livros', mug: 'caneca', lamp: 'luminária', tablet: 'tablet',
+      notebook: 'caderno', camera: 'câmera', headphones: 'fones', board: 'quadro', trophy: 'troféu',
+      fern: 'samambaia', cactus: 'cacto', succulent: 'suculenta', none: 'sem planta',
+      dog: 'cão', cat: 'gato', bird: 'pássaro', rabbit: 'coelho'
+    };
+    line.textContent = `Mesa ${labels[profile.deskTone] || profile.deskTone} · ${labels[profile.deskObject] || profile.deskObject} · ${labels[profile.plant] || profile.plant} · ${labels[profile.petSpecies] || profile.petSpecies} ${profile.petName}`;
+    item.querySelector('div').append(line);
+  }
 }
 socket.on('team:snapshot', renderTeam);
+socket.on('office:profiles', profiles => {
+  officeProfiles = profiles && typeof profiles === 'object' ? profiles : {};
+  renderProfileRoster();
+  addItem(ui.logs, 'Identidade visual da equipe atualizada.');
+});
 socket.on('agent:state', event => {
   agents[event.agent_id]?.setStatus(event.status);
   const item = [...ui.roster.children].find(child => child.dataset.agentId === event.agent_id);

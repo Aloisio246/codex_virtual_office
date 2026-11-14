@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalize, selectAgents, websiteContext } = require('../server');
+const { normalize, selectAgents, websiteContext, isPersonalizationRequest, parseOfficeProfile } = require('../server');
 const { TEAM_MEMBERS } = require('../agents');
 
 test('pedido de pesquisar novamente é delegado ao pesquisador', () => {
@@ -35,4 +35,12 @@ test('referência ao site da Impulso recupera o endereço conhecido e seus dados
     assert.ok(requested.includes('https://impulso-ads.vercel.app/sobre'));
     assert.equal(requested.length, 7);
   } finally { global.fetch = originalFetch; }
+});
+
+test('pedido de identidade visual ativa entrevistas e valida perfil estruturado', () => {
+  assert.equal(isPersonalizationRequest(normalize('Alfred, converse com cada integrante para personalizar a mesa e os pets')), true);
+  const profile = parseOfficeProfile(JSON.stringify({ deskTone: 'sage', deskObject: 'books',
+    plant: 'fern', petSpecies: 'cat', petName: 'Pixel', personalTouch: 'Livros e verde para pesquisa.' }));
+  assert.equal(profile.petName, 'Pixel');
+  assert.equal(parseOfficeProfile(JSON.stringify({ ...profile, petSpecies: 'dragon' })), null);
 });

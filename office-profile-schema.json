@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["deskTone", "deskObject", "plant", "petSpecies", "petName", "personalTouch"],
+  "properties": {
+    "deskTone": { "type": "string", "enum": ["wood", "sage", "sky", "rose", "lavender", "amber", "stone", "mint", "navy"] },
+    "deskObject": { "type": "string", "enum": ["books", "mug", "lamp", "tablet", "notebook", "camera", "headphones", "board", "trophy"] },
+    "plant": { "type": "string", "enum": ["fern", "cactus", "succulent", "none"] },
+    "petSpecies": { "type": "string", "enum": ["dog", "cat", "bird", "rabbit"] },
+    "petName": { "type": "string" },
+    "personalTouch": { "type": "string" }
+  }
+}

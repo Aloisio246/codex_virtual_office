@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev && npm install -g @openai/codex@0.167.0-alpha.4.1
 COPY server.js agents.js watcher.js trigger.py ./
+COPY office-profile-schema.json ./office-profile-schema.json
 COPY public ./public
 COPY agent-skills ./agent-skills
 COPY test ./test
