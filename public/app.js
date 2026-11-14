@@ -35,33 +35,34 @@ const CONFIG = {
     distribuicao: 'rgba(245,158,11,.12)', performance: 'rgba(16,185,129,.11)',
     comercial: 'rgba(99,102,241,.11)' },
   zones: {
-    lounge: { x: 24, y: 120, w: 245, h: 625, title: 'Café da Equipe' },
-    inteligencia: { x: 287, y: 26, w: 264, h: 320, title: 'Inteligência' },
-    criacao: { x: 567, y: 26, w: 310, h: 320, title: 'Criação' },
-    ceo: { x: 893, y: 26, w: 281, h: 320, title: 'CEO · Alfred' },
-    distribuicao: { x: 287, y: 362, w: 264, h: 383, title: 'Distribuição' },
-    performance: { x: 567, y: 362, w: 264, h: 383, title: 'Performance' },
-    comercial: { x: 847, y: 362, w: 327, h: 383, title: 'Comercial' }
+    lounge: { x: 100, y: 535, w: 1160, h: 235, title: 'Café da Equipe' },
+    inteligencia: { x: 20, y: 55, w: 180, h: 355, title: 'Inteligência' },
+    criacao: { x: 210, y: 55, w: 245, h: 355, title: 'Criação' },
+    distribuicao: { x: 465, y: 55, w: 170, h: 355, title: 'Distribuição' },
+    performance: { x: 645, y: 55, w: 170, h: 355, title: 'Performance' },
+    comercial: { x: 825, y: 55, w: 330, h: 355, title: 'Comercial' },
+    ceo: { x: 1165, y: 55, w: 170, h: 355, title: 'CEO · Alfred' }
   },
   desks: {
-    pesquisa: { x: 356, y: 151, w: 125, h: 65 },
-    copy: { x: 585, y: 151, w: 125, h: 65 },
-    designer: { x: 732, y: 151, w: 125, h: 65 },
-    alfred: { x: 975, y: 151, w: 125, h: 65 },
-    social: { x: 356, y: 497, w: 125, h: 65 },
-    trafego: { x: 637, y: 497, w: 125, h: 65 },
-    sdr: { x: 859, y: 497, w: 94, h: 65 },
-    closer: { x: 959, y: 497, w: 94, h: 65 },
-    cs: { x: 1059, y: 497, w: 94, h: 65 }
+    pesquisa: { x: 50, y: 160, w: 120, h: 65 },
+    copy: { x: 228, y: 160, w: 100, h: 65 },
+    designer: { x: 338, y: 160, w: 100, h: 65 },
+    social: { x: 490, y: 160, w: 120, h: 65 },
+    trafego: { x: 670, y: 160, w: 120, h: 65 },
+    sdr: { x: 838, y: 160, w: 94, h: 65 },
+    closer: { x: 944, y: 160, w: 94, h: 65 },
+    cs: { x: 1050, y: 160, w: 94, h: 65 },
+    alfred: { x: 1190, y: 160, w: 120, h: 65 }
   },
-  seats: { alfred: [1037, 266], pesquisa: [419, 266], copy: [648, 266], designer: [795, 266],
-    social: [419, 616], trafego: [700, 616], sdr: [906, 616], closer: [1006, 616], cs: [1106, 616] },
-  loungeSeats: { pesquisa: [68, 330], copy: [145, 305], designer: [218, 330],
-    social: [62, 430], trafego: [222, 430], sdr: [65, 545],
-    closer: [145, 568], cs: [220, 545], alfred: [145, 665] },
+  seats: { pesquisa: [110, 275], copy: [278, 275], designer: [388, 275],
+    social: [550, 275], trafego: [730, 275], sdr: [885, 275], closer: [991, 275], cs: [1097, 275], alfred: [1250, 275] },
+  loungeSeats: { pesquisa: [250, 650], copy: [360, 670], designer: [480, 650],
+    social: [600, 670], trafego: [720, 650], sdr: [840, 670],
+    closer: [960, 650], cs: [1080, 670], alfred: [660, 735] },
   agentRadius: 17,
-  projection: { originX: 600, originY: 400, xScale: .6, yScale: .28 },
-  movement: { speed: 410, minSegmentMs: 180, maxSegmentMs: 1250, corridorX: 278, doorOffset: 18 }
+  building: { width: 1360, depth: 800, corridorY: 475 },
+  projection: { originX: 600, originY: 400, xScale: .52, yScale: .26 },
+  movement: { speed: 520, minSegmentMs: 180, maxSegmentMs: 1350, doorOffset: 18 }
 };
 
 const canvas = document.getElementById('office');
@@ -118,15 +119,14 @@ document.addEventListener('keydown', event => {
 let isometric = true;
 function project(x, y, height = 0) {
   const p = CONFIG.projection;
-  return { x: p.originX + (x - 600) * p.xScale - (y - 390) * p.xScale,
-    y: p.originY + (x - 600) * p.yScale + (y - 390) * p.yScale - height };
+  return { x: p.originX + (x - 680) * p.xScale - (y - 400) * p.xScale,
+    y: p.originY + (x - 680) * p.yScale + (y - 400) * p.yScale - height };
 }
 function roomEntry(zone) {
-  const back = zone.y >= 350;
-  const doorY = back ? zone.y : zone.y + zone.h;
+  const doorY = zone.y + zone.h;
   return { x: zone.x + zone.w / 2, doorY,
-    outsideY: doorY + (back ? -CONFIG.movement.doorOffset : CONFIG.movement.doorOffset),
-    insideY: doorY + (back ? 42 : -32), back };
+    outsideY: doorY + CONFIG.movement.doorOffset,
+    insideY: doorY - 32 };
 }
 
 function roundRect(x, y, w, h, r = 12) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
@@ -233,26 +233,30 @@ class Agent {
     const target = destination === 'work' ? CONFIG.seats[this.id] :
       (colleague ? [colleague.x + 35, colleague.y + 20] : CONFIG.loungeSeats[this.id]);
     if (!target) return;
-    const wasInLounge = this.destination === 'lounge';
     const zoneId = colleague ? colleague.member.zone : this.member.zone;
-    const activeZone = destination === 'lounge' ? this.routeZone : zoneId;
-    const zone = colleague && colleague.destination === 'lounge' ? null : CONFIG.zones[activeZone];
+    const destinationZone = destination === 'lounge' || (colleague && colleague.destination === 'lounge')
+      ? null : CONFIG.zones[zoneId];
     const route = [];
-    if (zone && wasInLounge && destination !== 'lounge') {
-      const entry = roomEntry(zone);
-      route.push([CONFIG.movement.corridorX, this.y], [CONFIG.movement.corridorX, entry.outsideY],
-        [entry.x, entry.outsideY], [entry.x, entry.insideY]);
-    } else if (zone && destination === 'lounge' && !wasInLounge) {
-      const entry = roomEntry(zone);
-      route.push([entry.x, entry.insideY], [entry.x, entry.outsideY],
-        [CONFIG.movement.corridorX, entry.outsideY], [CONFIG.movement.corridorX, target[1]]);
+    const sameCafe = this.y > CONFIG.zones.lounge.y && target[1] > CONFIG.zones.lounge.y;
+    if (!sameCafe) {
+      let corridorX = this.x;
+      if (this.y < CONFIG.zones.inteligencia.y + CONFIG.zones.inteligencia.h && this.routeZone) {
+        const exit = roomEntry(CONFIG.zones[this.routeZone]);
+        route.push([exit.x, exit.insideY], [exit.x, exit.outsideY]);
+        corridorX = exit.x;
+      }
+      route.push([corridorX, CONFIG.building.corridorY]);
+      if (destinationZone) {
+        const entry = roomEntry(destinationZone);
+        route.push([entry.x, CONFIG.building.corridorY], [entry.x, entry.outsideY], [entry.x, entry.insideY]);
+      } else route.push([target[0], CONFIG.building.corridorY]);
     }
     route.push(target);
     this.path = route.filter(([x, y]) => Math.hypot(x - this.x, y - this.y) > 2);
     this.trail = [];
     this.lastTrailAt = 0;
     this.destination = destination;
-    if (destination !== 'lounge') this.routeZone = zone ? zoneId : null;
+    this.routeZone = destinationZone ? zoneId : null;
     this.nextSegment(performance.now());
   }
   nextSegment(now) {
@@ -353,21 +357,20 @@ function drawZone(id, zone) {
 function drawLounge() {
   const zone = CONFIG.zones.lounge;
   ctx.fillStyle = '#DCEDE0';
-  roundRect(zone.x + 15, zone.y + 70, zone.w - 30, zone.h - 92, 22); ctx.fill();
-  shadow(); ctx.fillStyle = '#B88762'; roundRect(40, 174, 210, 58, 10); ctx.fill(); clearShadow();
-  ctx.fillStyle = '#2C4052'; roundRect(61, 182, 35, 35, 4); ctx.fill();
-  ctx.fillStyle = '#84BDC5'; ctx.fillRect(68, 189, 21, 9);
+  roundRect(zone.x + 15, zone.y + 55, zone.w - 30, zone.h - 70, 22); ctx.fill();
+  shadow(); ctx.fillStyle = '#B88762'; roundRect(145, 550, 220, 50, 10); ctx.fill(); clearShadow();
+  ctx.fillStyle = '#2C4052'; roundRect(166, 558, 35, 32, 4); ctx.fill();
+  ctx.fillStyle = '#84BDC5'; ctx.fillRect(173, 565, 21, 9);
   ctx.fillStyle = '#FFF8E8'; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center';
-  ctx.fillText('CAFÉ', 157, 207);
-  shadow(); ctx.fillStyle = '#D7A778'; roundRect(91, 395, 108, 95, 16); ctx.fill(); clearShadow();
-  for (const [x, y] of [[87, 288], [173, 288], [70, 550], [185, 548]]) {
-    ctx.fillStyle = '#E0B78D'; roundRect(x - 21, y - 20, 42, 40, 10); ctx.fill();
+  ctx.fillText('CAFÉ', 300, 583);
+  for (const x of [340, 570, 800, 1030]) {
+    shadow(); ctx.fillStyle = '#D7A778'; roundRect(x - 42, 627, 84, 44, 16); ctx.fill(); clearShadow();
   }
   for (const [x, y] of Object.values(CONFIG.loungeSeats)) {
     ctx.fillStyle = '#5E947F'; roundRect(x - 16, y - 13, 32, 26, 10); ctx.fill();
     ctx.fillStyle = '#8DB9A2'; roundRect(x - 12, y - 9, 24, 17, 7); ctx.fill();
   }
-  ctx.fillStyle = '#FFF8E8'; ctx.font = '24px system-ui'; ctx.fillText('☕', 145, 445);
+  ctx.fillStyle = '#FFF8E8'; ctx.font = '24px system-ui'; ctx.fillText('☕', 600, 650);
 }
 function drawDesk(id, desk, now) {
   shadow(); ctx.fillStyle = '#D9D3C8'; roundRect(desk.x, desk.y, desk.w, desk.h, 8); ctx.fill(); clearShadow();
@@ -416,48 +419,34 @@ function diamond(x, y, w, h, fill, stroke) {
   polygon([project(x, y), project(x + w, y), project(x + w, y + h), project(x, y + h)], fill, stroke);
 }
 function drawRoom(id, zone) {
-  const h = 52;
-  const backA = project(zone.x, zone.y), backB = project(zone.x + zone.w, zone.y);
-  const leftC = project(zone.x, zone.y + zone.h);
+  const h = 64;
+  const backA = project(zone.x, zone.y), leftC = project(zone.x, zone.y + zone.h);
   const entry = roomEntry(zone);
-  for (const [start, end] of entry.back ? [[0, .38], [.62, 1]] : [[0, 1]]) {
-    const a = project(zone.x + zone.w * start, zone.y), b = project(zone.x + zone.w * end, zone.y);
-    polygon([a, b, { x: b.x, y: b.y - h }, { x: a.x, y: a.y - h }], ISO_THEME.glass, ISO_THEME.glassEdge);
+  // Paredes laterais sólidas na base e vidro acima deixam as salas alinhadas e abertas à vista.
+  polygon([backA, leftC, { x: leftC.x, y: leftC.y - 15 }, { x: backA.x, y: backA.y - 15 }], '#7D9A9D', '#D7E9E8');
+  polygon([{ x: backA.x, y: backA.y - 15 }, { x: leftC.x, y: leftC.y - 15 },
+    { x: leftC.x, y: leftC.y - h }, { x: backA.x, y: backA.y - h }], 'rgba(208,235,236,.22)', '#E4F1F0');
+  const doorHalf = Math.min(30, zone.w * .18);
+  for (const [start, end] of [[zone.x, entry.x - doorHalf], [entry.x + doorHalf, zone.x + zone.w]]) {
+    const a = project(start, entry.doorY), b = project(end, entry.doorY);
+    polygon([a, b, { x: b.x, y: b.y - 14 }, { x: a.x, y: a.y - 14 }], '#76989B', '#D5E7E6');
+    polygon([{ x: a.x, y: a.y - 14 }, { x: b.x, y: b.y - 14 },
+      { x: b.x, y: b.y - h }, { x: a.x, y: a.y - h }], 'rgba(207,234,236,.24)', '#DCEDEC');
+    ctx.strokeStyle = '#F4FCFA'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - h); ctx.lineTo(a.x, a.y - 14);
+    ctx.moveTo(b.x, b.y - h); ctx.lineTo(b.x, b.y - 14); ctx.stroke();
   }
-  polygon([backA, leftC, { x: leftC.x, y: leftC.y - h }, { x: backA.x, y: backA.y - h }], 'rgba(148, 190, 205, .30)', ISO_THEME.glassEdge);
-  ctx.strokeStyle = ISO_THEME.glassEdge; ctx.lineWidth = 2;
-  for (const point of [backA, backB, leftC]) {
-    ctx.beginPath(); ctx.moveTo(point.x, point.y); ctx.lineTo(point.x, point.y - h); ctx.stroke();
-  }
-  // Perfis verticais deixam a divisão das salas visível sem esconder as mesas.
-  for (const ratio of entry.back ? [.38, .62] : [.33, .66]) {
-    const p = project(zone.x + zone.w * ratio, zone.y);
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - h); ctx.stroke();
-  }
-  ctx.strokeStyle = '#FFFFFF88'; ctx.lineWidth = 1;
-  for (const [start, end] of entry.back ? [[0, .38], [.62, 1]] : [[0, 1]]) {
-    const a = project(zone.x + zone.w * start, zone.y), b = project(zone.x + zone.w * end, zone.y);
-    ctx.beginPath(); ctx.moveTo(a.x, a.y - h * .48); ctx.lineTo(b.x, b.y - h * .48); ctx.stroke();
-  }
-  const frontY = zone.y + zone.h;
-  for (const [start, end] of entry.back ? [[0, 1]] : [[0, .32], [.68, 1]]) {
-    const a = project(zone.x + zone.w * start, frontY);
-    const b = project(zone.x + zone.w * end, frontY);
-    polygon([a, b, { x: b.x, y: b.y - 12 }, { x: a.x, y: a.y - 12 }], '#AECAD266', '#DDEFF0');
-  }
-  const threshold = project(entry.x, entry.insideY);
-  ctx.fillStyle = '#E9F5EF77';
-  ctx.beginPath(); ctx.ellipse(threshold.x, threshold.y, 24, 5, 0, 0, Math.PI * 2); ctx.fill();
-  const frame = project(entry.x, entry.back ? zone.y : zone.y + zone.h);
-  ctx.strokeStyle = '#F5FBF9'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(frame.x - 24, frame.y - h); ctx.lineTo(frame.x - 24, frame.y);
-  ctx.moveTo(frame.x + 24, frame.y - h); ctx.lineTo(frame.x + 24, frame.y); ctx.stroke();
-  ctx.strokeStyle = '#A9C9CD'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(frame.x - 24, frame.y - h); ctx.lineTo(frame.x + 24, frame.y - h); ctx.stroke();
+  const leftDoor = project(entry.x - doorHalf, entry.doorY);
+  const rightDoor = project(entry.x + doorHalf, entry.doorY);
+  ctx.strokeStyle = '#E8F3F1'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(leftDoor.x, leftDoor.y - h); ctx.lineTo(rightDoor.x, rightDoor.y - h); ctx.stroke();
+  const threshold = project(entry.x, entry.doorY);
+  ctx.fillStyle = '#F2EBD0';
+  ctx.beginPath(); ctx.ellipse(threshold.x, threshold.y, 18, 4, 0, 0, Math.PI * 2); ctx.fill();
 }
 function drawRoomSign(id, zone) {
   const location = id === 'lounge'
-    ? project(zone.x + zone.w / 2, zone.y + 70, 34)
+    ? project(zone.x + zone.w / 2, zone.y + zone.h - 14, 22)
     : project(zone.x + zone.w / 2, zone.y + 28, 51);
   const title = zone.title.toUpperCase();
   ctx.font = '700 11px system-ui'; ctx.textAlign = 'center';
@@ -531,25 +520,25 @@ function drawCafeSeat(x, y) {
 }
 function drawCoffeeArea() {
   const lounge = CONFIG.zones.lounge;
-  shadow(); diamond(lounge.x + 22, lounge.y + 170, lounge.w - 44, 400, '#5A9B8170', '#D7EEE2A0'); clearShadow();
-  for (let y = lounge.y + 185; y < lounge.y + 555; y += 44) {
+  shadow(); diamond(lounge.x + 20, lounge.y + 18, lounge.w - 40, lounge.h - 34, '#5A9B8170', '#D7EEE2A0'); clearShadow();
+  for (let y = lounge.y + 35; y < lounge.y + lounge.h - 25; y += 44) {
     const a = project(lounge.x + 29, y, 1), b = project(lounge.x + lounge.w - 29, y, 1);
     ctx.strokeStyle = '#DDF4E856'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
   }
   // Balcão com máquina, copos e atendente.
-  const counter = [project(44, 178, 25), project(225, 178, 25),
-    project(225, 227, 25), project(44, 227, 25)];
-  polygon([counter[1], counter[2], project(225, 227), project(225, 178)], '#9A704F');
-  polygon([counter[2], counter[3], project(44, 227), project(225, 227)], '#AA805D');
+  const counter = [project(145, 550, 25), project(370, 550, 25),
+    project(370, 598, 25), project(145, 598, 25)];
+  polygon([counter[1], counter[2], project(370, 598), project(370, 550)], '#9A704F');
+  polygon([counter[2], counter[3], project(145, 598), project(370, 598)], '#AA805D');
   polygon(counter, '#DEBA8E', '#F0D2AD');
   // Placa aplicada à frente do balcão, acompanhando sua perspectiva.
-  polygon([project(105, 228, 21), project(166, 228, 21),
-    project(166, 228, 7), project(105, 228, 7)], '#355C60', '#E8D8B7');
-  const cafeSign = project(135.5, 228, 11);
+  polygon([project(228, 599, 21), project(290, 599, 21),
+    project(290, 599, 7), project(228, 599, 7)], '#355C60', '#E8D8B7');
+  const cafeSign = project(259, 599, 11);
   ctx.fillStyle = '#FFF7E8'; ctx.font = '700 11px system-ui'; ctx.textAlign = 'center';
   ctx.fillText('CAFÉ', cafeSign.x, cafeSign.y);
-  const machine = project(82, 190, 30);
+  const machine = project(190, 564, 30);
   ctx.fillStyle = '#263B4F'; roundRect(machine.x - 14, machine.y - 29, 28, 29, 4); ctx.fill();
   ctx.fillStyle = '#79BAC2'; roundRect(machine.x - 10, machine.y - 20, 20, 9, 2); ctx.fill();
   ctx.fillStyle = '#DDE9E7'; ctx.fillRect(machine.x - 8, machine.y - 8, 16, 4);
@@ -557,25 +546,25 @@ function drawCoffeeArea() {
   ctx.strokeStyle = '#B5D4D4'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(machine.x - 4, machine.y + 1); ctx.lineTo(machine.x - 4, machine.y + 8);
   ctx.moveTo(machine.x + 4, machine.y + 1); ctx.lineTo(machine.x + 4, machine.y + 8); ctx.stroke();
-  const cups = project(198, 191, 31);
+  const cups = project(345, 566, 31);
   ctx.fillStyle = '#F8F5EE';
   for (let i = 0; i < 3; i++) {
     roundRect(cups.x + i * 7, cups.y - 9 - i * 2, 8, 10, 2); ctx.fill();
   }
-  const barista = project(145, 167);
+  const barista = project(283, 544);
   ctx.fillStyle = '#4B5969'; roundRect(barista.x - 9, barista.y - 26, 18, 20, 5); ctx.fill();
   ctx.fillStyle = '#D9A481'; ctx.beginPath(); ctx.arc(barista.x, barista.y - 32, 8, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#2A3440'; roundRect(barista.x - 9, barista.y - 42, 18, 7, 3); ctx.fill();
-  // Mesa grande de conversa e quatro mesas menores.
-  drawCafeTable(93, 396, 104, 92);
-  for (const [x, y] of [[87, 288], [173, 288], [70, 550], [185, 548]]) {
-    drawCafeTable(x - 23, y - 20, 46, 43);
+  // Mesas distribuídas em uma área comum contínua, em frente às salas.
+  drawCafeTable(552, 598, 170, 68);
+  for (const [x, y] of [[390, 610], [835, 610], [1010, 610], [440, 716], [900, 716]]) {
+    drawCafeTable(x - 28, y - 16, 56, 38);
   }
-  const mug = project(145, 438, 11);
+  const mug = project(638, 635, 18);
   ctx.fillStyle = '#FAF5E9'; roundRect(mug.x - 8, mug.y - 10, 16, 13, 4); ctx.fill();
   ctx.strokeStyle = '#FAF5E9'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(mug.x + 9, mug.y - 4, 4, -1.3, 1.3); ctx.stroke();
-  for (const [x, y] of [[87, 288], [173, 288], [70, 550], [185, 548]]) {
+  for (const [x, y] of [[390, 610], [835, 610], [1010, 610], [440, 716], [900, 716]]) {
     const cup = project(x, y, 17);
     ctx.fillStyle = '#FCF6E9'; roundRect(cup.x - 3, cup.y - 5, 6, 6, 2); ctx.fill();
     ctx.strokeStyle = '#FCF6E9'; ctx.lineWidth = 1;
@@ -584,22 +573,23 @@ function drawCoffeeArea() {
   for (const [x, y] of Object.values(CONFIG.loungeSeats)) drawCafeSeat(x, y);
 }
 function drawIsoWalls() {
-  const a = project(0, 0), b = project(1200, 0), c = project(0, 780);
+  const { width, depth } = CONFIG.building;
+  const a = project(0, 0), b = project(width, 0), c = project(0, depth);
   polygon([a, b, { x: b.x, y: b.y - 150 }, { x: a.x, y: a.y - 150 }], ISO_THEME.wallRight, ISO_THEME.wallTrim);
   polygon([a, c, { x: c.x, y: c.y - 150 }, { x: a.x, y: a.y - 150 }], ISO_THEME.wallLeft, ISO_THEME.wallTrim);
-  const baseA = project(0, 0, 6), baseB = project(1200, 0, 6), baseC = project(0, 780, 6);
+  const baseA = project(0, 0, 6), baseB = project(width, 0, 6), baseC = project(0, depth, 6);
   ctx.strokeStyle = '#90A7B8'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(baseB.x, baseB.y); ctx.lineTo(baseA.x, baseA.y);
   ctx.lineTo(baseC.x, baseC.y); ctx.stroke();
-  const trimA = project(0, 0, 16), trimB = project(1200, 0, 16), trimC = project(0, 780, 16);
+  const trimA = project(0, 0, 16), trimB = project(width, 0, 16), trimC = project(0, depth, 16);
   ctx.strokeStyle = '#98ADAD'; ctx.lineWidth = 7;
   ctx.beginPath(); ctx.moveTo(trimB.x, trimB.y); ctx.lineTo(trimA.x, trimA.y);
   ctx.lineTo(trimC.x, trimC.y); ctx.stroke();
   ctx.strokeStyle = '#D0DDDA'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(trimB.x, trimB.y - 4); ctx.lineTo(trimA.x, trimA.y - 4);
   ctx.lineTo(trimC.x, trimC.y - 4); ctx.stroke();
-  for (let i = 0; i < 5; i++) {
-    const p = project(140 + i * 200, 0);
+  for (let i = 0; i < 6; i++) {
+    const p = project(120 + i * 210, 0);
     polygon([{ x: p.x, y: p.y - 132 }, { x: p.x + 65, y: p.y - 107 },
       { x: p.x + 65, y: p.y - 42 }, { x: p.x, y: p.y - 67 }], '#D5E4E8', '#EDF6F5');
     polygon([{ x: p.x + 5, y: p.y - 125 }, { x: p.x + 60, y: p.y - 104 },
@@ -612,7 +602,7 @@ function drawIsoWalls() {
     polygon([{ x: p.x + 6, y: p.y - 71 }, { x: p.x + 60, y: p.y - 50 },
       { x: p.x + 60, y: p.y - 45 }, { x: p.x + 6, y: p.y - 66 }], '#F5F6EB99');
   }
-  for (const x of [300, 580, 900]) {
+  for (const x of [230, 640, 1080]) {
     const p = project(x, 0);
     polygon([{ x: p.x - 16, y: p.y - 77 }, { x: p.x + 17, y: p.y - 65 },
       { x: p.x + 17, y: p.y - 32 }, { x: p.x - 16, y: p.y - 44 }], '#D7BC9B', '#F0DEC4');
@@ -698,16 +688,17 @@ function drawIsoDesk(id, desk, now) {
   drawIsoChair(chairX, chairY);
 }
 function drawIsoOffice(now) {
+  const { width, depth, corridorY } = CONFIG.building;
   const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
   background.addColorStop(0, ISO_THEME.backdropTop);
   background.addColorStop(1, ISO_THEME.backdropBottom);
   ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.shadowColor = 'rgba(0,0,0,.42)'; ctx.shadowBlur = 34; ctx.shadowOffsetY = 20;
-  diamond(0, 0, 1200, 780, ISO_THEME.floorEdge); clearShadow();
-  const edgeA = project(0, 780), edgeB = project(1200, 780);
+  diamond(0, 0, width, depth, ISO_THEME.floorEdge); clearShadow();
+  const edgeA = project(0, depth), edgeB = project(width, depth);
   polygon([edgeA, edgeB, { x: edgeB.x, y: edgeB.y + 15 },
     { x: edgeA.x, y: edgeA.y + 15 }], '#77543E', '#A47652');
-  for (let x = 0; x < 1200; x += 80) for (let y = 0; y < 780; y += 80) {
+  for (let x = 0; x < width; x += 80) for (let y = 0; y < depth; y += 80) {
     diamond(x, y, 80, 80, (Math.floor(x / 80) + Math.floor(y / 80)) % 2
       ? ISO_THEME.floorLight : ISO_THEME.floorDark, '#E5BE9388');
     const a = project(x + 9, y + 14), b = project(x + 69, y + 14);
@@ -716,6 +707,12 @@ function drawIsoOffice(now) {
     const c = project(x + 9, y + 65), d = project(x + 69, y + 65);
     ctx.strokeStyle = '#8F674022';
     ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.stroke();
+  }
+  diamond(18, 420, width - 36, 110, '#CFBB9A55', '#F5DFC3AA');
+  for (let x = 95; x < width; x += 95) {
+    const a = project(x, corridorY - 2, 1), b = project(x + 32, corridorY - 2, 1);
+    ctx.strokeStyle = '#FFF7E855'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
   }
   drawIsoWalls();
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
@@ -726,8 +723,10 @@ function drawIsoOffice(now) {
   Object.entries(CONFIG.desks).sort((a, b) => (a[1].x + a[1].y) - (b[1].x + b[1].y))
     .forEach(([id, desk]) => drawIsoDesk(id, desk, now));
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
-    if (id !== 'lounge') drawPlanter(zone.x + zone.w - 25, zone.y + zone.h - 48);
-    drawRoomSign(id, zone);
+    if (id !== 'lounge') {
+      drawPlanter(zone.x + zone.w - 25, zone.y + zone.h - 48);
+      drawRoomSign(id, zone);
+    }
   }
 }
 function drawOffice(now) { if (isometric) drawIsoOffice(now); else drawPlanOffice(now); }
