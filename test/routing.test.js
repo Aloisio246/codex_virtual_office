@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalize, selectAgents, websiteContext, isPersonalizationRequest, parseOfficeProfile } = require('../server');
+const { normalize, selectAgents, websiteContext, isPersonalizationRequest, isVisualReviewRequest,
+  parseOfficeProfile, uniquePetNames } = require('../server');
 const { TEAM_MEMBERS } = require('../agents');
 
 test('pedido de pesquisar novamente é delegado ao pesquisador', () => {
@@ -43,4 +44,14 @@ test('pedido de identidade visual ativa entrevistas e valida perfil estruturado'
     plant: 'fern', petSpecies: 'cat', petName: 'Pixel', personalTouch: 'Livros e verde para pesquisa.' }));
   assert.equal(profile.petName, 'Pixel');
   assert.equal(parseOfficeProfile(JSON.stringify({ ...profile, petSpecies: 'dragon' })), null);
+});
+
+test('revisão visual direta não reinicia entrevistas e nomes de pets ficam distintos', () => {
+  assert.equal(isVisualReviewRequest(normalize('Alfred, revise a cena do escritório e diga o que falta')), true);
+  assert.equal(isVisualReviewRequest(normalize('Alfred, converse com cada integrante e personalize as mesas')), false);
+  const profiles = uniquePetNames({ designer: { petName: 'Pixel' },
+    trafego: { petName: 'Pixel', personalTouch: 'O gato Pixel ajuda no trabalho.' } });
+  assert.equal(profiles.designer.petName, 'Pixel');
+  assert.equal(profiles.trafego.petName, 'Cliques');
+  assert.equal(profiles.trafego.personalTouch, 'O gato Cliques ajuda no trabalho.');
 });

@@ -12,7 +12,7 @@ const TEAM_MEMBERS = {
 
 const ISO_THEME = {
   backdropTop: '#13243A', backdropBottom: '#071321',
-  floorLight: '#D8B183', floorDark: '#CDA575', floorEdge: '#865F43',
+  floorLight: '#E8DED1', floorDark: '#DDD2C3', floorEdge: '#8B7868',
   wallLeft: '#40576E', wallRight: '#344B62', wallTrim: '#708BA2',
   glass: 'rgba(205, 231, 236, .29)', glassEdge: '#D6EAF0',
   deskTop: '#E8C49B', deskSide: '#B68B68', deskFront: '#A77C5C',
@@ -35,6 +35,15 @@ const DESK_TONES = {
   navy: ['#AFC2CF', '#6C899E', '#54758A']
 };
 let officeProfiles = {};
+let previewTimer;
+function sendOfficePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    if (!socket.connected) return;
+    try { socket.emit('office:preview', canvas.toDataURL('image/png')); }
+    catch { /* O escritório permanece utilizável mesmo sem captura. */ }
+  }, 400);
+}
 
 const CONFIG = {
   colors: { bg: '#F8FAFC', ink: '#243244', muted: '#687789', edge: '#CBD5E1',
@@ -323,16 +332,17 @@ class Agent {
     ctx.font = isometric ? '700 10px system-ui' : '600 13px system-ui';
     ctx.textAlign = 'center';
     const labelY = y - (isometric ? 58 : 30);
-    if (isometric) {
+    if (isometric && (this.destination !== 'work' || this.startedAt)) {
       const labelWidth = ctx.measureText(this.member.name).width + 15;
       ctx.fillStyle = '#172B3DDE';
       roundRect(x - labelWidth / 2, labelY - 12, labelWidth, 17, 5); ctx.fill();
       ctx.fillStyle = '#FFF'; ctx.fillText(this.member.name, x, labelY);
-    } else {
+    } else if (!isometric) {
       ctx.lineWidth = 3; ctx.strokeStyle = '#FFF'; ctx.strokeText(this.member.name, x, labelY);
       ctx.fillStyle = CONFIG.colors.ink; ctx.fillText(this.member.name, x, labelY);
     }
-    if (this.status === 'working' || this.status === 'done' || this.status === 'error') {
+    if ((this.status === 'working' || this.status === 'done' || this.status === 'error') &&
+        (!isometric || this.destination !== 'work' || this.startedAt)) {
       const symbol = this.status === 'working' ? '●' : this.status === 'done' ? '✓' : '!';
       ctx.fillStyle = this.status === 'error' ? '#BE384B' : this.status === 'done' ? '#159568' : this.member.color;
       ctx.beginPath(); ctx.arc(x + 26, labelY - 5, 8, 0, Math.PI * 2); ctx.fill();
@@ -359,7 +369,8 @@ class Agent {
 const agents = Object.fromEntries(Object.entries(TEAM_MEMBERS).map(([id, member]) => [id, new Agent(id, member)]));
 
 function drawPet(agent, x, y, now) {
-  const species = officeProfiles[agent.id]?.petSpecies;
+  const profile = officeProfiles[agent.id];
+  const species = profile?.petSpecies;
   if (!species) return;
   const bounce = agent.startedAt ? Math.abs(Math.sin(now / 120)) * 2 : Math.sin(now / 700 + x) * .5;
   ctx.fillStyle = '#07162255';
@@ -382,6 +393,13 @@ function drawPet(agent, x, y, now) {
   }
   ctx.fillStyle = '#1E293B';
   for (const dx of [-2, 3]) { ctx.beginPath(); ctx.arc(x + dx, y - 8 - bounce, 1, 0, Math.PI * 2); ctx.fill(); }
+  if (agent.destination === 'work' && !agent.startedAt && profile.petName) {
+    ctx.font = '700 9px system-ui'; ctx.textAlign = 'center';
+    const label = profile.petName;
+    const width = Math.min(70, ctx.measureText(label).width + 9);
+    ctx.fillStyle = '#172B3DEB'; roundRect(x - width / 2, y + 4, width, 14, 4); ctx.fill();
+    ctx.fillStyle = '#FFF'; ctx.fillText(label, x, y + 14, width - 6);
+  }
 }
 
 function drawZone(id, zone) {
@@ -771,6 +789,12 @@ function drawIsoDesk(id, desk, now) {
   ctx.fillStyle = TEAM_MEMBERS[id].color;
   ctx.beginPath(); ctx.arc(led.x, led.y, 3, 0, Math.PI * 2); ctx.fill();
   drawDeskObject(id, desk);
+  const nameplate = project(centerX, desk.y + desk.h, 16);
+  const label = TEAM_MEMBERS[id].name;
+  ctx.font = '700 9px system-ui'; ctx.textAlign = 'center';
+  const labelWidth = Math.min(desk.w * .45, ctx.measureText(label).width + 9);
+  ctx.fillStyle = '#1E3445'; roundRect(nameplate.x - labelWidth / 2, nameplate.y - 2, labelWidth, 13, 3); ctx.fill();
+  ctx.fillStyle = '#FFF'; ctx.fillText(label, nameplate.x, nameplate.y + 7, labelWidth - 5);
   const [chairX, chairY] = CONFIG.seats[id];
   drawIsoChair(chairX, chairY);
 }
@@ -1020,6 +1044,7 @@ socket.on('connect', () => {
   ui.connection.textContent = '● Conectado'; ui.connection.style.color = '#059669';
   codexStatus.textContent = 'Verificando Codex CLI...';
   socket.emit('codex:connect');
+  sendOfficePreview();
 });
 socket.on('disconnect', () => { ui.connection.textContent = '● Desconectado'; ui.connection.style.color = '#B45309'; });
 function renderTeam(team) {
@@ -1070,7 +1095,9 @@ socket.on('office:profiles', profiles => {
   officeProfiles = profiles && typeof profiles === 'object' ? profiles : {};
   renderProfileRoster();
   addItem(ui.logs, 'Identidade visual da equipe atualizada.');
+  sendOfficePreview();
 });
+socket.on('office:preview:request', sendOfficePreview);
 socket.on('agent:state', event => {
   agents[event.agent_id]?.setStatus(event.status);
   const item = [...ui.roster.children].find(child => child.dataset.agentId === event.agent_id);
@@ -1102,4 +1129,4 @@ socket.on('agent:event', event => {
 });
 socket.on('task:snapshot', tasks => { ui.board.replaceChildren(); [...tasks].reverse().forEach(renderTask); });
 socket.on('task:update', renderTask);
-socket.on('office:updated', () => { ui.officeUpdate.hidden = false; });
+socket.on('office:updated', () => { ui.officeUpdate.hidden = false; sendOfficePreview(); });
