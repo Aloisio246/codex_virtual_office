@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const { normalize, selectAgents, websiteContext, isPersonalizationRequest, isVisualReviewRequest,
   parseOfficeProfile, uniquePetNames } = require('../server');
 const { TEAM_MEMBERS } = require('../agents');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 test('pedido de pesquisar novamente é delegado ao pesquisador', () => {
   assert.deepEqual(selectAgents(normalize('manda eles pesquisar novamente o site da impulso')), ['pesquisa']);
@@ -54,4 +57,25 @@ test('revisão visual direta não reinicia entrevistas e nomes de pets ficam dis
   assert.equal(profiles.designer.petName, 'Pixel');
   assert.equal(profiles.trafego.petName, 'Cliques');
   assert.equal(profiles.trafego.personalTouch, 'O gato Cliques ajuda no trabalho.');
+});
+
+test('mesas e cadeiras mantêm folga dentro dos setores', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  const configSource = source.match(/const CONFIG = (\{[\s\S]*?\n\});/)?.[1];
+  assert.ok(configSource, 'CONFIG da planta deve ser encontrado');
+  const config = vm.runInNewContext(`(${configSource})`);
+  const zones = Object.entries(config.zones).filter(([id]) => id !== 'lounge').map(([, zone]) => zone);
+  for (let index = 1; index < zones.length; index++) {
+    assert.ok(zones[index - 1].x + zones[index - 1].w + 10 <= zones[index].x);
+  }
+  for (const [id, desk] of Object.entries(config.desks)) {
+    const zone = config.zones[TEAM_MEMBERS[id].zone];
+    assert.ok(desk.x - zone.x >= 40, `${id}: mesa encosta na divisória esquerda`);
+    assert.ok(zone.x + zone.w - desk.x - desk.w >= 40, `${id}: mesa encosta na divisória direita`);
+    assert.ok(desk.y - zone.y >= 80 && zone.y + zone.h - desk.y - desk.h >= 160,
+      `${id}: mesa precisa de circulação frontal e traseira`);
+    const [seatX, seatY] = config.seats[id];
+    assert.ok(seatX > desk.x && seatX < desk.x + desk.w);
+    assert.ok(seatY > desk.y + desk.h + 40 && seatY < zone.y + zone.h - 40);
+  }
 });

@@ -52,33 +52,33 @@ const CONFIG = {
     distribuicao: 'rgba(245,158,11,.12)', performance: 'rgba(16,185,129,.11)',
     comercial: 'rgba(99,102,241,.11)' },
   zones: {
-    lounge: { x: 100, y: 535, w: 1340, h: 235, title: 'Café da Equipe' },
-    inteligencia: { x: 20, y: 55, w: 210, h: 355, title: 'Inteligência' },
-    criacao: { x: 240, y: 55, w: 285, h: 355, title: 'Criação' },
-    distribuicao: { x: 535, y: 55, w: 190, h: 355, title: 'Distribuição' },
-    performance: { x: 735, y: 55, w: 190, h: 355, title: 'Performance' },
-    comercial: { x: 935, y: 55, w: 370, h: 355, title: 'Comercial' },
-    ceo: { x: 1315, y: 55, w: 205, h: 355, title: 'CEO · Alfred' }
+    lounge: { x: 100, y: 535, w: 1730, h: 235, title: 'Café da Equipe' },
+    inteligencia: { x: 20, y: 55, w: 260, h: 400, title: 'Inteligência' },
+    criacao: { x: 295, y: 55, w: 370, h: 400, title: 'Criação' },
+    distribuicao: { x: 680, y: 55, w: 250, h: 400, title: 'Distribuição' },
+    performance: { x: 945, y: 55, w: 250, h: 400, title: 'Performance' },
+    comercial: { x: 1210, y: 55, w: 445, h: 400, title: 'Comercial' },
+    ceo: { x: 1670, y: 55, w: 240, h: 400, title: 'CEO · Alfred' }
   },
   desks: {
-    pesquisa: { x: 65, y: 160, w: 120, h: 65 },
-    copy: { x: 260, y: 160, w: 110, h: 65 },
-    designer: { x: 390, y: 160, w: 110, h: 65 },
-    social: { x: 570, y: 160, w: 120, h: 65 },
-    trafego: { x: 770, y: 160, w: 120, h: 65 },
-    sdr: { x: 955, y: 160, w: 100, h: 65 },
-    closer: { x: 1070, y: 160, w: 100, h: 65 },
-    cs: { x: 1185, y: 160, w: 100, h: 65 },
-    alfred: { x: 1357, y: 160, w: 120, h: 65 }
+    pesquisa: { x: 90, y: 155, w: 120, h: 65 },
+    copy: { x: 345, y: 155, w: 110, h: 65 },
+    designer: { x: 505, y: 155, w: 110, h: 65 },
+    social: { x: 745, y: 155, w: 120, h: 65 },
+    trafego: { x: 1010, y: 155, w: 120, h: 65 },
+    sdr: { x: 1255, y: 155, w: 100, h: 65 },
+    closer: { x: 1380, y: 155, w: 100, h: 65 },
+    cs: { x: 1505, y: 155, w: 100, h: 65 },
+    alfred: { x: 1725, y: 155, w: 120, h: 65 }
   },
-  seats: { pesquisa: [125, 275], copy: [315, 275], designer: [445, 275],
-    social: [630, 275], trafego: [830, 275], sdr: [1005, 275], closer: [1120, 275], cs: [1235, 275], alfred: [1417, 275] },
-  loungeSeats: { pesquisa: [250, 640], copy: [430, 640], designer: [610, 640],
-    social: [790, 640], trafego: [970, 640], sdr: [330, 725],
-    closer: [555, 725], cs: [800, 725], alfred: [1040, 725] },
+  seats: { pesquisa: [150, 275], copy: [400, 275], designer: [560, 275],
+    social: [805, 275], trafego: [1070, 275], sdr: [1305, 275], closer: [1430, 275], cs: [1555, 275], alfred: [1785, 275] },
+  loungeSeats: { pesquisa: [250, 640], copy: [440, 640], designer: [630, 640],
+    social: [820, 640], trafego: [1010, 640], sdr: [460, 725],
+    closer: [820, 725], cs: [1200, 725], alfred: [1590, 725] },
   agentRadius: 17,
-  building: { width: 1540, depth: 800, corridorY: 475 },
-  projection: { originX: 600, originY: 400, xScale: .46, yScale: .23 },
+  building: { width: 1930, depth: 800, corridorY: 495 },
+  projection: { originX: 600, originY: 435, xScale: .4, yScale: .19 },
   movement: { speed: 520, minSegmentMs: 180, maxSegmentMs: 1350, doorOffset: 18 }
 };
 
@@ -137,8 +137,8 @@ document.addEventListener('keydown', event => {
 let isometric = true;
 function project(x, y, height = 0) {
   const p = CONFIG.projection;
-  return { x: p.originX + (x - 770) * p.xScale - (y - 400) * p.xScale,
-    y: p.originY + (x - 770) * p.yScale + (y - 400) * p.yScale - height };
+  return { x: p.originX + (x - CONFIG.building.width / 2) * p.xScale - (y - CONFIG.building.depth / 2) * p.xScale,
+    y: p.originY + (x - CONFIG.building.width / 2) * p.yScale + (y - CONFIG.building.depth / 2) * p.yScale - height };
 }
 function roomEntry(zone) {
   const doorY = zone.y + zone.h;
@@ -611,15 +611,15 @@ function drawCoffeeArea() {
   ctx.fillStyle = '#D9A481'; ctx.beginPath(); ctx.arc(barista.x, barista.y - 32, 8, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#2A3440'; roundRect(barista.x - 9, barista.y - 42, 18, 7, 3); ctx.fill();
   // Mesas distribuídas em uma área comum contínua, em frente às salas.
-  drawCafeTable(665, 555, 190, 68);
-  for (const [x, y] of [[450, 588], [1050, 588], [425, 684], [720, 684], [1080, 684]]) {
+  drawCafeTable(825, 555, 190, 68);
+  for (const [x, y] of [[450, 588], [1210, 588], [1650, 588], [520, 684], [1230, 684], [1670, 684]]) {
     drawCafeTable(x - 28, y - 16, 56, 38);
   }
-  const mug = project(760, 590, 18);
+  const mug = project(920, 590, 18);
   ctx.fillStyle = '#FAF5E9'; roundRect(mug.x - 8, mug.y - 10, 16, 13, 4); ctx.fill();
   ctx.strokeStyle = '#FAF5E9'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(mug.x + 9, mug.y - 4, 4, -1.3, 1.3); ctx.stroke();
-  for (const [x, y] of [[450, 588], [1050, 588], [425, 684], [720, 684], [1080, 684]]) {
+  for (const [x, y] of [[450, 588], [1210, 588], [1650, 588], [520, 684], [1230, 684], [1670, 684]]) {
     const cup = project(x, y, 17);
     ctx.fillStyle = '#FCF6E9'; roundRect(cup.x - 3, cup.y - 5, 6, 6, 2); ctx.fill();
     ctx.strokeStyle = '#FCF6E9'; ctx.lineWidth = 1;
@@ -643,8 +643,8 @@ function drawIsoWalls() {
   ctx.strokeStyle = '#D0DDDA'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(trimB.x, trimB.y - 4); ctx.lineTo(trimA.x, trimA.y - 4);
   ctx.lineTo(trimC.x, trimC.y - 4); ctx.stroke();
-  for (let i = 0; i < 6; i++) {
-    const p = project(120 + i * 245, 0);
+  for (let i = 0; i < 7; i++) {
+    const p = project(120 + i * 275, 0);
     polygon([{ x: p.x, y: p.y - 132 }, { x: p.x + 65, y: p.y - 107 },
       { x: p.x + 65, y: p.y - 42 }, { x: p.x, y: p.y - 67 }], '#D5E4E8', '#EDF6F5');
     polygon([{ x: p.x + 5, y: p.y - 125 }, { x: p.x + 60, y: p.y - 104 },
@@ -657,7 +657,7 @@ function drawIsoWalls() {
     polygon([{ x: p.x + 6, y: p.y - 71 }, { x: p.x + 60, y: p.y - 50 },
       { x: p.x + 60, y: p.y - 45 }, { x: p.x + 6, y: p.y - 66 }], '#F5F6EB99');
   }
-  for (const x of [280, 760, 1240]) {
+  for (const x of [350, 950, 1550]) {
     const p = project(x, 0);
     polygon([{ x: p.x - 16, y: p.y - 77 }, { x: p.x + 17, y: p.y - 65 },
       { x: p.x + 17, y: p.y - 32 }, { x: p.x - 16, y: p.y - 44 }], '#D7BC9B', '#F0DEC4');
@@ -837,7 +837,7 @@ function drawIsoOffice(now) {
     .forEach(([id, desk]) => drawIsoDesk(id, desk, now));
   for (const [id, zone] of Object.entries(CONFIG.zones)) {
     if (id !== 'lounge') {
-      drawPlanter(zone.x + zone.w - 25, zone.y + zone.h - 48);
+      drawPlanter(zone.x + zone.w - 55, zone.y + zone.h - 60);
       drawRoomSign(id, zone);
     }
   }
@@ -877,9 +877,17 @@ function updateCoffeeTalk(now) {
 startGameLoop(canvas, {
   update(_dt, now) { Object.values(agents).forEach(agent => agent.update(now)); updateCoffeeTalk(now); },
   render(_ctx, now) {
+    if (!isometric) {
+      ctx.fillStyle = CONFIG.colors.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      const scale = Math.min(canvas.width / (CONFIG.building.width + 40), canvas.height / (CONFIG.building.depth + 40));
+      ctx.setTransform(scale, 0, 0, scale, (canvas.width - CONFIG.building.width * scale) / 2,
+        (canvas.height - CONFIG.building.depth * scale) / 2);
+    }
     drawOffice(now);
     Object.values(agents).sort((a, b) => (isometric ? project(a.x, a.y).y - project(b.x, b.y).y : a.y - b.y))
       .forEach(agent => agent.draw(now));
+    if (!isometric) ctx.restore();
   }
 });
 
